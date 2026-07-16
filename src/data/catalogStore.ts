@@ -405,7 +405,8 @@ export async function submitCollegeListing(input: CollegeInput) {
           submittedBy: input.submittedBy ?? 'student',
         },
       })
-      await refreshCatalogFromApi()
+      // No full catalog refresh here — listing is pending (not shown publicly),
+      // so we keep submit fast and avoid the heavy 3-request reload.
       return normalizeCollege(data.college)
     } catch (error) {
       throw new Error(

@@ -162,29 +162,38 @@ export function CollegeListingForm({
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
+    if (busy) return
     if (!name.trim() || !city.trim()) return
     if (programIds.length === 0 && customPrograms.length === 0) return
 
     const branches = splitList(branchesText, /,/)
     const cleanedFees = feeRows.filter((row) => row.programLabel.trim() && row.amount.trim())
 
-    await onSubmit({
-      name,
-      city,
-      location: location || city,
-      principalName: principalName || 'To be updated',
-      feesStructure: formatFeeRows(cleanedFees),
-      feeRows: cleanedFees,
-      courses: customPrograms,
-      branches,
-      images,
-      type,
-      programIds,
-      customPrograms,
-      about,
-      submittedBy: defaultSubmittedBy,
-      admissionStatus,
-    })
+    setBusy(true)
+    setUploadError('')
+    try {
+      await onSubmit({
+        name,
+        city,
+        location: location || city,
+        principalName: principalName || 'To be updated',
+        feesStructure: formatFeeRows(cleanedFees),
+        feeRows: cleanedFees,
+        courses: customPrograms,
+        branches,
+        images,
+        type,
+        programIds,
+        customPrograms,
+        about,
+        submittedBy: defaultSubmittedBy,
+        admissionStatus,
+      })
+    } catch (error) {
+      setUploadError(error instanceof Error ? error.message : 'Submit failed. Please try again.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   if (programs.length === 0) {
@@ -396,11 +405,10 @@ export function CollegeListingForm({
       ) : null}
 
       {uploadError ? <p className="text-sm font-medium text-red-700">{uploadError}</p> : null}
-      {busy ? <p className="text-sm text-stone">Uploading…</p> : null}
 
       <div className="flex flex-wrap gap-2 pt-1">
         <button type="submit" className="btn btn-primary" disabled={busy}>
-          {submitLabel}
+          {busy ? 'Please wait…' : submitLabel}
         </button>
         {onCancel ? (
           <button type="button" onClick={onCancel} className="btn btn-outline">
