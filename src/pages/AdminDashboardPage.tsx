@@ -28,6 +28,24 @@ export function AdminDashboardPage() {
   const applications = useApplications()
   const [openPanel, setOpenPanel] = useState<Panel>(null)
   const [editingCollegeId, setEditingCollegeId] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [notice, setNotice] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+
+  async function runAction(id: string, label: string, fn: () => Promise<unknown>) {
+    setBusyId(id)
+    setNotice(null)
+    try {
+      await fn()
+      setNotice({ type: 'ok', text: `${label} done.` })
+    } catch (error) {
+      setNotice({
+        type: 'err',
+        text: error instanceof Error ? error.message : `${label} failed. Try again.`,
+      })
+    } finally {
+      setBusyId(null)
+    }
+  }
 
   if (!isAdmin) {
     return <Navigate to="/admin/login" replace />
@@ -39,11 +57,11 @@ export function AdminDashboardPage() {
 
   return (
     <AdminShell showLogout onLogout={logout}>
-      <main className="mx-auto max-w-6xl px-5 py-10 md:px-8 md:py-14">
-        <div className="flex flex-wrap items-start justify-between gap-4">
+      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-5 md:px-8 md:py-14">
+        <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
           <div>
             <p className="text-sm font-medium tracking-wide text-stone uppercase">Super Admin</p>
-            <h1 className="mt-1 font-display text-3xl font-bold text-ink">Control panel</h1>
+            <h1 className="mt-1 font-display text-2xl font-bold text-ink sm:text-3xl">Control panel</h1>
             <p className="mt-2 max-w-xl text-sm text-stone">
               Approve listings, manage catalog with +, and track admission applications. This panel
               is not shown in the public menu.
@@ -52,10 +70,11 @@ export function AdminDashboardPage() {
           {isApiEnabled() ? (
             <button
               type="button"
-              onClick={() => void refreshCatalogFromApi()}
-              className="rounded-md border border-line bg-white px-4 py-2 text-sm font-medium text-ink hover:bg-mist"
+              onClick={() => void runAction('refresh', 'Refresh', () => refreshCatalogFromApi())}
+              disabled={busyId === 'refresh'}
+              className="w-full rounded-md border border-line bg-white px-4 py-2 text-sm font-medium text-ink hover:bg-mist disabled:opacity-60 sm:w-auto"
             >
-              Refresh from server
+              {busyId === 'refresh' ? 'Refreshing…' : 'Refresh from server'}
             </button>
           ) : (
             <button
@@ -65,12 +84,24 @@ export function AdminDashboardPage() {
                   resetCatalogToSeed()
                 }
               }}
-              className="rounded-md border border-line bg-white px-4 py-2 text-sm font-medium text-ink hover:bg-mist"
+              className="w-full rounded-md border border-line bg-white px-4 py-2 text-sm font-medium text-ink hover:bg-mist sm:w-auto"
             >
               Reset demo data
             </button>
           )}
         </div>
+
+        {notice ? (
+          <div
+            className={`mt-6 rounded-md border px-4 py-3 text-sm ${
+              notice.type === 'ok'
+                ? 'border-sea/30 bg-sea/5 text-ink'
+                : 'border-red-200 bg-red-50 text-red-700'
+            }`}
+          >
+            {notice.text}
+          </div>
+        ) : null}
 
         <section className="mt-10">
           <h2 className="font-display text-xl font-bold text-ink">Pending college requests</h2>
@@ -143,26 +174,40 @@ export function AdminDashboardPage() {
                         </div>
                       ) : null}
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex w-full flex-wrap gap-2 sm:w-auto">
                       <Link
                         to={`/colleges/${college.slug}`}
-                        className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-ink hover:bg-mist"
+                        className="flex-1 rounded-md border border-line px-3 py-2 text-center text-sm font-medium text-ink hover:bg-mist sm:flex-none"
                       >
-                        View full
+                        View
                       </Link>
                       <button
                         type="button"
-                        onClick={() => void approveCollege(college.id)}
-                        className="rounded-md bg-sea px-3 py-1.5 text-sm font-semibold text-white hover:bg-sea-deep"
+                        disabled={busyId === college.id}
+                        onClick={() => void runAction(college.id, 'Approve', () => approveCollege(college.id))}
+                        className="flex-1 rounded-md bg-sea px-3 py-2 text-sm font-semibold text-white hover:bg-sea-deep disabled:opacity-60 sm:flex-none"
                       >
                         Approve
                       </button>
                       <button
                         type="button"
-                        onClick={() => void rejectCollege(college.id)}
-                        className="rounded-md border border-line px-3 py-1.5 text-sm font-medium text-stone hover:bg-mist hover:text-ink"
+                        disabled={busyId === college.id}
+                        onClick={() => void runAction(college.id, 'Reject', () => rejectCollege(college.id))}
+                        className="flex-1 rounded-md border border-line px-3 py-2 text-sm font-medium text-stone hover:bg-mist hover:text-ink disabled:opacity-60 sm:flex-none"
                       >
                         Reject
+                      </button>
+                      <button
+                        type="button"
+                        disabled={busyId === college.id}
+                        onClick={() => {
+                          if (window.confirm(`Delete “${college.name}” permanently?`)) {
+                            void runAction(college.id, 'Delete', () => removeCollege(college.id))
+                          }
+                        }}
+                        className="flex-1 rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60 sm:flex-none"
+                      >
+                        Delete
                       </button>
                     </div>
                   </div>
@@ -196,12 +241,13 @@ export function AdminDashboardPage() {
                 </div>
                 <button
                   type="button"
+                  disabled={busyId === stream.id}
                   onClick={() => {
                     if (window.confirm(`Remove stream “${stream.name}” and its programs?`)) {
-                      void removeStream(stream.id)
+                      void runAction(stream.id, 'Remove stream', () => removeStream(stream.id))
                     }
                   }}
-                  className="rounded-md px-2 py-1 text-sm font-medium text-stone hover:bg-mist hover:text-ink"
+                  className="shrink-0 rounded-md border border-red-200 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
                 >
                   Remove
                 </button>
@@ -236,12 +282,13 @@ export function AdminDashboardPage() {
                   </div>
                   <button
                     type="button"
+                    disabled={busyId === program.id}
                     onClick={() => {
                       if (window.confirm(`Remove program “${program.name}”?`)) {
-                        void removeProgram(program.id)
+                        void runAction(program.id, 'Remove program', () => removeProgram(program.id))
                       }
                     }}
-                    className="rounded-md px-2 py-1 text-sm font-medium text-stone hover:bg-mist hover:text-ink"
+                    className="shrink-0 rounded-md border border-red-200 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60"
                   >
                     Remove
                   </button>
@@ -325,25 +372,26 @@ export function AdminDashboardPage() {
                     {ADMISSION_STATUS_LABELS[college.admissionStatus]}
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex w-full flex-wrap gap-2 sm:w-auto">
                   <button
                     type="button"
                     onClick={() => {
                       setOpenPanel(null)
                       setEditingCollegeId(college.id)
                     }}
-                    className="rounded-md border border-line px-2 py-1 text-sm font-medium text-ink hover:bg-mist"
+                    className="flex-1 rounded-md border border-line px-3 py-2 text-sm font-medium text-ink hover:bg-mist sm:flex-none"
                   >
                     Edit
                   </button>
                   <button
                     type="button"
+                    disabled={busyId === college.id}
                     onClick={() => {
                       if (window.confirm(`Remove college “${college.name}”?`)) {
-                        void removeCollege(college.id)
+                        void runAction(college.id, 'Remove college', () => removeCollege(college.id))
                       }
                     }}
-                    className="rounded-md px-2 py-1 text-sm font-medium text-stone hover:bg-mist hover:text-ink"
+                    className="flex-1 rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60 sm:flex-none"
                   >
                     Remove
                   </button>
@@ -354,10 +402,56 @@ export function AdminDashboardPage() {
               <li className="px-4 py-6 text-sm text-stone">No approved colleges. Use + to add one.</li>
             ) : null}
           </ul>
-          {rejected.length > 0 ? (
-            <p className="mt-3 text-xs text-stone">{rejected.length} rejected listing(s) kept in storage.</p>
-          ) : null}
         </section>
+
+        {rejected.length > 0 ? (
+          <section className="mt-12">
+            <h2 className="font-display text-xl font-bold text-ink">Rejected colleges</h2>
+            <p className="mt-1 text-xs text-stone">
+              {rejected.length} rejected. Restore to approve, or delete permanently.
+            </p>
+            <ul className="mt-4 divide-y divide-line overflow-hidden rounded-lg border border-line bg-white">
+              {rejected.map((college) => (
+                <li
+                  key={college.id}
+                  className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between"
+                >
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold text-ink">{college.name}</p>
+                      <CollegeTypeBadge type={college.type} />
+                    </div>
+                    <p className="mt-0.5 text-xs text-stone">
+                      {college.city} · Request · {college.submittedBy}
+                    </p>
+                  </div>
+                  <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+                    <button
+                      type="button"
+                      disabled={busyId === college.id}
+                      onClick={() => void runAction(college.id, 'Restore', () => approveCollege(college.id))}
+                      className="flex-1 rounded-md bg-sea px-3 py-2 text-sm font-semibold text-white hover:bg-sea-deep disabled:opacity-60 sm:flex-none"
+                    >
+                      Restore
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busyId === college.id}
+                      onClick={() => {
+                        if (window.confirm(`Delete “${college.name}” permanently?`)) {
+                          void runAction(college.id, 'Delete', () => removeCollege(college.id))
+                        }
+                      }}
+                      className="flex-1 rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60 sm:flex-none"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
 
         <section className="mt-12">
           <h2 className="font-display text-xl font-bold text-ink">Admission applications</h2>
