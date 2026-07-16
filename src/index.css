@@ -1,0 +1,305 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Bricolage Grotesque", system-ui, sans-serif;
+  --font-sans: "Manrope", system-ui, sans-serif;
+
+  --color-ink: #0b1f33;
+  --color-ink-soft: #16324a;
+  --color-mist: #e8f0f4;
+  --color-fog: #f4f7f9;
+  --color-sea: #1fa088;
+  --color-sea-deep: #157a68;
+  --color-stone: #5c6b76;
+  --color-line: #d5e0e7;
+
+  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  font-family: var(--font-sans);
+  color: var(--color-ink);
+  background: var(--color-fog);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  transition:
+    color 0.28s var(--ease-smooth),
+    background-color 0.28s var(--ease-smooth),
+    border-color 0.28s var(--ease-smooth),
+    box-shadow 0.28s var(--ease-smooth),
+    transform 0.28s var(--ease-smooth),
+    opacity 0.28s var(--ease-smooth);
+}
+
+/* —— Buttons —— */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1.35rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.2;
+  border: 1px solid transparent;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn-primary {
+  background: var(--color-sea);
+  color: #fff;
+  box-shadow: 0 10px 28px -16px rgba(31, 160, 136, 0.75);
+}
+
+.btn-primary:hover {
+  background: var(--color-sea-deep);
+  transform: translateY(-2px);
+  box-shadow: 0 16px 36px -14px rgba(31, 160, 136, 0.85);
+}
+
+.btn-primary:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.btn-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(8px);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.55);
+  transform: translateY(-2px);
+}
+
+.btn-light {
+  background: #fff;
+  color: var(--color-ink);
+  box-shadow: 0 8px 24px -16px rgba(11, 31, 51, 0.35);
+}
+
+.btn-light:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 32px -14px rgba(11, 31, 51, 0.4);
+}
+
+.btn-ink {
+  background: var(--color-ink);
+  color: #fff;
+}
+
+.btn-ink:hover {
+  background: var(--color-ink-soft);
+  transform: translateY(-2px);
+}
+
+.btn-outline {
+  background: #fff;
+  color: var(--color-ink);
+  border-color: var(--color-line);
+}
+
+.btn-outline:hover {
+  background: var(--color-mist);
+  border-color: color-mix(in srgb, var(--color-ink) 18%, var(--color-line));
+  transform: translateY(-1px);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: inherit;
+  border-color: rgba(255, 255, 255, 0.25);
+}
+
+.btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.btn-sm {
+  padding: 0.5rem 0.9rem;
+  font-size: 0.8125rem;
+}
+
+.btn-lg {
+  padding: 0.9rem 1.6rem;
+  font-size: 0.9375rem;
+}
+
+@keyframes hero-rise {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes hero-zoom {
+  from {
+    transform: scale(1.08);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-hero-rise {
+  animation: hero-rise 0.9s var(--ease-smooth) both;
+}
+
+.animate-hero-rise-delay {
+  animation: hero-rise 0.9s var(--ease-smooth) 0.15s both;
+}
+
+.animate-hero-rise-delay-2 {
+  animation: hero-rise 0.9s var(--ease-smooth) 0.3s both;
+}
+
+.animate-hero-zoom {
+  animation: hero-zoom 1.8s var(--ease-smooth) both;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.8s ease both;
+}
+
+.page-enter {
+  animation: page-enter 0.55s var(--ease-smooth) both;
+}
+
+/* Scroll reveal */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition:
+    opacity 0.75s var(--ease-smooth),
+    transform 0.75s var(--ease-smooth);
+  will-change: opacity, transform;
+}
+
+.reveal-in {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Soft interactive lift for cards / tiles */
+.lift {
+  transition:
+    transform 0.4s var(--ease-smooth),
+    box-shadow 0.4s var(--ease-smooth),
+    border-color 0.4s var(--ease-smooth),
+    background-color 0.4s var(--ease-smooth);
+}
+
+.lift:hover {
+  transform: translateY(-4px);
+}
+
+/* Mobile menu stagger */
+.menu-section,
+.menu-item {
+  opacity: 0;
+  transform: translateX(18px);
+  transition:
+    opacity 0.45s var(--ease-smooth),
+    transform 0.45s var(--ease-smooth);
+}
+
+.menu-section-in,
+.menu-item-in {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-hero-rise,
+  .animate-hero-rise-delay,
+  .animate-hero-rise-delay-2,
+  .animate-hero-zoom,
+  .animate-fade-in,
+  .page-enter,
+  .reveal,
+  .menu-section,
+  .menu-item,
+  .lift,
+  .btn {
+    animation: none !important;
+    transition: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    transition: none !important;
+  }
+}

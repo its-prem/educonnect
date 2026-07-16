@@ -1,0 +1,6 @@
+RewriteEngine On
+
+# Route all /api/* requests to index.php (except real files)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [QSA,L]
