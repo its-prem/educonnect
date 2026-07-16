@@ -481,3 +481,56 @@ export function resetCatalogToSeed() {
   saveCatalog(seed)
   return seed
 }
+
+export type BulkResult = { name: string; ok: boolean; error?: string }
+
+/**
+ * Create many colleges at once (admin bulk import).
+ * Skips the heavy per-item catalog refresh — refreshes once at the end.
+ */
+export async function bulkAddColleges(inputs: CollegeInput[]): Promise<BulkResult[]> {
+  const results: BulkResult[] = []
+
+  if (isApiEnabled()) {
+    const token = getAdminToken()
+    for (const input of inputs) {
+      try {
+        const created = await apiFetch<{ college: College }>('/colleges', {
+          body: { ...collegePayload(input), submittedBy: 'admin' },
+        })
+        if (input.approvalStatus !== 'pending') {
+          await apiFetch(`/admin/colleges/${encodeURIComponent(created.college.id)}/approve`, {
+            method: 'POST',
+            token,
+          })
+        }
+        results.push({ name: input.name, ok: true })
+      } catch (error) {
+        results.push({
+          name: input.name,
+          ok: false,
+          error: error instanceof ApiError ? error.message : 'Failed to add.',
+        })
+      }
+    }
+    await refreshCatalogFromApi()
+    return results
+  }
+
+  const catalog = loadCatalog()
+  for (const input of inputs) {
+    try {
+      const college = buildCollege({
+        ...input,
+        submittedBy: input.submittedBy ?? 'admin',
+        approvalStatus: input.approvalStatus ?? 'approved',
+      })
+      catalog.colleges.push(college)
+      results.push({ name: input.name, ok: true })
+    } catch {
+      results.push({ name: input.name, ok: false, error: 'Failed to add.' })
+    }
+  }
+  saveCatalog(catalog)
+  return results
+}

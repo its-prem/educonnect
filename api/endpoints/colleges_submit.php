@@ -25,14 +25,8 @@ if (!in_array($submittedBy, $allowedSources, true)) {
     $submittedBy = 'student';
 }
 
-if (strlen($name) < 2 || strlen($city) < 2) {
-    json_error('College name and city are required.');
-}
-
-$programIds = $body['programIds'] ?? [];
-$custom = $body['customPrograms'] ?? [];
-if ((!is_array($programIds) || $programIds === []) && (!is_array($custom) || $custom === [])) {
-    json_error('Select or add at least one program.');
+if (strlen($name) < 2) {
+    json_error('College name is required.');
 }
 
 $pdo = db();

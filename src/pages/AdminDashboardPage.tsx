@@ -8,6 +8,7 @@ import {
   addProgram,
   addStream,
   approveCollege,
+  bulkAddColleges,
   refreshCatalogFromApi,
   rejectCollege,
   removeCollege,
@@ -16,11 +17,12 @@ import {
   resetCatalogToSeed,
   updateCollege,
 } from '../data/catalogStore'
+import type { BulkResult } from '../data/catalogStore'
 import { useApplications, useCatalog, useSuperAdmin } from '../hooks/useCatalog'
 import { isApiEnabled } from '../lib/api'
-import { ADMISSION_STATUS_LABELS } from '../types/catalog'
+import { ADMISSION_STATUS_LABELS, type CollegeInput } from '../types/catalog'
 
-type Panel = 'streams' | 'programs' | 'colleges' | null
+type Panel = 'streams' | 'programs' | 'colleges' | 'bulk' | null
 
 export function AdminDashboardPage() {
   const { isAdmin, logout } = useSuperAdmin()
@@ -102,6 +104,32 @@ export function AdminDashboardPage() {
             {notice.text}
           </div>
         ) : null}
+
+        <section className="mt-8">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="font-display text-xl font-bold text-ink">Bulk add colleges</h2>
+              <p className="text-xs text-stone">Paste many colleges at once (JSON format)</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOpenPanel(openPanel === 'bulk' ? null : 'bulk')}
+              className={`flex h-11 w-11 items-center justify-center rounded-lg border text-2xl font-light leading-none transition-all duration-300 ${
+                openPanel === 'bulk'
+                  ? 'border-ink bg-ink text-white'
+                  : 'border-line bg-white text-ink hover:border-sea hover:text-sea'
+              }`}
+            >
+              {openPanel === 'bulk' ? '×' : '+'}
+            </button>
+          </div>
+          {openPanel === 'bulk' ? (
+            <BulkImportForm
+              onDone={() => setOpenPanel(null)}
+              onNotice={(n) => setNotice(n)}
+            />
+          ) : null}
+        </section>
 
         <section className="mt-10">
           <h2 className="font-display text-xl font-bold text-ink">Pending college requests</h2>
@@ -630,5 +658,236 @@ function AddProgramForm({
         </button>
       </div>
     </form>
+  )
+}
+
+const BULK_TEMPLATE = `[
+  {
+    "name": "ABC Polytechnic",
+    "city": "Ranchi",
+    "type": "private",
+    "location": "Near Bus Stand, Ranchi",
+    "principalName": "Dr. A. Sharma",
+    "about": "AICTE approved diploma & degree campus.",
+    "branches": ["CSE", "Mechanical", "Civil"],
+    "customPrograms": ["Diploma", "B.Tech"],
+    "fees": [["Diploma", "45,000 / year"], ["B.Tech", "65,000 / year"]],
+    "images": ["https://images.unsplash.com/photo-1562774053-701939374585"],
+    "admissionStatus": "open"
+  },
+  {
+    "name": "XYZ College of Engineering",
+    "city": "Jamshedpur",
+    "type": "government",
+    "branches": ["Electrical", "Electronics"],
+    "customPrograms": ["B.Tech"]
+  }
+]`
+
+function toStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((v) => String(v).trim()).filter(Boolean)
+  }
+  if (typeof value === 'string') {
+    return value
+      .split(/[,;\n]/)
+      .map((v) => v.trim())
+      .filter(Boolean)
+  }
+  return []
+}
+
+function parseFeeRows(value: unknown): { programLabel: string; amount: string }[] {
+  if (!Array.isArray(value)) return []
+  const rows: { programLabel: string; amount: string }[] = []
+  for (const item of value) {
+    if (Array.isArray(item) && item.length >= 2) {
+      rows.push({ programLabel: String(item[0]).trim(), amount: String(item[1]).trim() })
+    } else if (item && typeof item === 'object') {
+      const obj = item as Record<string, unknown>
+      const label = String(obj.programLabel ?? obj.label ?? '').trim()
+      const amount = String(obj.amount ?? '').trim()
+      if (label) rows.push({ programLabel: label, amount })
+    } else if (typeof item === 'string' && item.includes(':')) {
+      const idx = item.indexOf(':')
+      rows.push({
+        programLabel: item.slice(0, idx).trim(),
+        amount: item.slice(idx + 1).trim(),
+      })
+    }
+  }
+  return rows.filter((r) => r.programLabel)
+}
+
+function mapBulkEntry(raw: Record<string, unknown>): { input?: CollegeInput; error?: string } {
+  const name = String(raw.name ?? '').trim()
+  const city = String(raw.city ?? '').trim()
+  if (name.length < 2) return { error: 'Missing "name".' }
+
+  const branches = toStringArray(raw.branches)
+  const customPrograms = toStringArray(raw.customPrograms ?? raw.programs)
+  const programIds = toStringArray(raw.programIds)
+
+  const rawType = String(raw.type ?? 'private').trim()
+  const type =
+    rawType === 'government' || rawType === 'semi-government' || rawType === 'private'
+      ? rawType
+      : 'private'
+  const admissionStatus = String(raw.admissionStatus ?? 'open').trim() === 'closed' ? 'closed' : 'open'
+  const feeRows = parseFeeRows(raw.fees ?? raw.feeRows)
+
+  return {
+    input: {
+      name,
+      type,
+      city,
+      location: String(raw.location ?? city).trim(),
+      principalName: String(raw.principalName ?? '').trim(),
+      feesStructure: '',
+      feeRows,
+      courses: customPrograms,
+      branches,
+      images: toStringArray(raw.images),
+      programIds,
+      customPrograms,
+      about: String(raw.about ?? '').trim(),
+      admissionStatus,
+      approvalStatus: 'approved',
+      submittedBy: 'admin',
+    },
+  }
+}
+
+function BulkImportForm({
+  onDone,
+  onNotice,
+}: {
+  onDone: () => void
+  onNotice: (n: { type: 'ok' | 'err'; text: string }) => void
+}) {
+  const [text, setText] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [results, setResults] = useState<BulkResult[] | null>(null)
+  const [parseError, setParseError] = useState('')
+
+  async function handleImport() {
+    setParseError('')
+    setResults(null)
+
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(text)
+    } catch {
+      setParseError('Invalid JSON. Check commas, quotes and brackets.')
+      return
+    }
+    if (!Array.isArray(parsed)) {
+      setParseError('Top level must be an array: [ { ... }, { ... } ]')
+      return
+    }
+
+    const inputs: CollegeInput[] = []
+    const errors: string[] = []
+    parsed.forEach((row, index) => {
+      if (!row || typeof row !== 'object') {
+        errors.push(`Row ${index + 1}: not an object.`)
+        return
+      }
+      const { input, error } = mapBulkEntry(row as Record<string, unknown>)
+      if (error) errors.push(error)
+      else if (input) inputs.push(input)
+    })
+
+    if (inputs.length === 0) {
+      setParseError(errors[0] ?? 'No valid colleges found.')
+      return
+    }
+
+    setBusy(true)
+    try {
+      const res = await bulkAddColleges(inputs)
+      const withValidation: BulkResult[] = [
+        ...res,
+        ...errors.map((e) => ({ name: e, ok: false, error: 'Skipped' })),
+      ]
+      setResults(withValidation)
+      const okCount = res.filter((r) => r.ok).length
+      onNotice({
+        type: okCount > 0 ? 'ok' : 'err',
+        text: `${okCount} college(s) added${errors.length ? `, ${errors.length} skipped` : ''}.`,
+      })
+      if (okCount > 0 && errors.length === 0) {
+        setText('')
+      }
+    } catch (error) {
+      setParseError(error instanceof Error ? error.message : 'Import failed.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="mt-4 space-y-3 rounded-lg border border-line bg-white p-4">
+      <div className="rounded-md bg-fog px-3 py-2 text-xs text-stone">
+        <p className="font-semibold text-ink">Format: JSON array of colleges.</p>
+        <p className="mt-1">
+          Sirf <b>name</b> required hai. Baaki sab fields optional — jo doge wahi bharega, jo nahi
+          doge wo khali rahega.
+        </p>
+      </div>
+
+      <textarea
+        className={`${inputClass} min-h-64 font-mono text-xs leading-relaxed`}
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder={BULK_TEMPLATE}
+        spellCheck={false}
+      />
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => setText(BULK_TEMPLATE)}
+          className="rounded-md border border-line px-4 py-2.5 text-sm font-medium text-ink hover:bg-mist"
+        >
+          Insert example
+        </button>
+        <button
+          type="button"
+          disabled={busy || !text.trim()}
+          onClick={() => void handleImport()}
+          className="rounded-md bg-sea px-4 py-2.5 text-sm font-semibold text-white hover:bg-sea-deep disabled:opacity-60"
+        >
+          {busy ? 'Importing…' : 'Import colleges'}
+        </button>
+        <button
+          type="button"
+          onClick={onDone}
+          className="rounded-md border border-line px-4 py-2.5 text-sm font-medium"
+        >
+          Close
+        </button>
+      </div>
+
+      {parseError ? (
+        <p className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {parseError}
+        </p>
+      ) : null}
+
+      {results ? (
+        <ul className="max-h-56 space-y-1 overflow-y-auto rounded-md border border-line p-2 text-sm">
+          {results.map((r, i) => (
+            <li
+              key={`${r.name}-${i}`}
+              className={r.ok ? 'text-ink' : 'text-red-600'}
+            >
+              {r.ok ? '✓' : '✕'} {r.name}
+              {r.error && !r.ok ? ` — ${r.error}` : ''}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
   )
 }
