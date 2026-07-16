@@ -1,6 +1,5 @@
 import { useCallback, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { primaryNav } from '../../config/navigation'
+import { Link, NavLink } from 'react-router-dom'
 import { useStudentAuth } from '../../hooks/useStudentAuth'
 import { MenuButton } from './MenuButton'
 import { MobileMenu } from './MobileMenu'
@@ -18,53 +17,94 @@ export function SiteHeader({ variant = 'transparent' }: SiteHeaderProps) {
 
   const isSolid = variant === 'solid'
 
+  const navLinks = [
+    { label: 'Home', to: '/', end: true },
+    { label: 'Colleges', to: '/colleges', end: false },
+    { label: 'Courses', to: '/courses', end: false },
+    ...(isLoggedIn ? [{ label: 'My Applications', to: '/applications', end: false }] : []),
+  ]
+
   return (
     <>
       <header
         className={`animate-fade-in z-50 ${
           isSolid
-            ? 'sticky top-0 border-b border-line bg-ink/95 text-white shadow-sm backdrop-blur-md'
+            ? 'sticky top-0 border-b border-white/10 bg-ink/95 text-white shadow-lg backdrop-blur-md'
             : 'absolute inset-x-0 top-0 text-white'
         }`}
       >
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-4 md:px-8 md:py-5">
+        <div className="mx-auto flex max-w-6xl items-center gap-4 px-5 py-4 md:px-8 md:py-4">
           <Link
             to="/"
-            className="font-display text-xl font-extrabold tracking-tight transition-opacity duration-300 hover:opacity-90 md:text-2xl"
+            className="flex items-center gap-2 font-display text-xl font-extrabold tracking-tight transition-opacity duration-300 hover:opacity-90 md:text-2xl"
             onClick={closeMenu}
           >
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-sea text-white shadow-sm">
+              E
+            </span>
             EduConnect
           </Link>
 
-          <nav className="hidden items-center gap-1 lg:flex" aria-label="Primary">
-            {primaryNav.map((link) => (
-              <Link
+          {/* Desktop nav — centered */}
+          <nav
+            className="mx-auto hidden items-center gap-1 lg:flex"
+            aria-label="Primary"
+          >
+            {navLinks.map((link) => (
+              <NavLink
                 key={link.to}
                 to={link.to}
-                className="rounded-lg px-3.5 py-2 text-sm font-medium text-white/80 hover:bg-white/12 hover:text-white"
+                end={link.end}
+                className={({ isActive }) =>
+                  `rounded-lg px-4 py-2 text-sm font-medium transition-colors duration-200 ${
+                    isActive
+                      ? 'bg-white/15 text-white'
+                      : 'text-white/75 hover:bg-white/10 hover:text-white'
+                  }`
+                }
               >
                 {link.label}
-              </Link>
+              </NavLink>
             ))}
           </nav>
 
-          <div className="flex items-center gap-2 sm:gap-3">
+          {/* Right side actions */}
+          <div className="ml-auto flex items-center gap-2 sm:gap-3 lg:ml-0">
             {isLoggedIn && student ? (
-              <>
-                <span className="hidden max-w-[140px] truncate text-sm font-medium text-white/85 lg:inline">
-                  Hi, {student.name.split(' ')[0]}
+              <div className="hidden items-center gap-3 lg:flex">
+                <span className="flex items-center gap-2 rounded-full bg-white/10 py-1.5 pr-3 pl-1.5 text-sm font-medium text-white">
+                  <span className="grid h-7 w-7 place-items-center rounded-full bg-sea text-xs font-bold text-white uppercase">
+                    {student.name.trim().charAt(0) || 'U'}
+                  </span>
+                  <span className="max-w-[120px] truncate">{student.name.split(' ')[0]}</span>
                 </span>
                 <button
                   type="button"
                   onClick={logout}
-                  className="btn btn-ghost btn-sm hidden lg:inline-flex"
+                  className="rounded-lg border border-white/25 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-white/10"
                 >
                   Logout
                 </button>
-              </>
-            ) : null}
+              </div>
+            ) : (
+              <div className="hidden items-center gap-2 lg:flex">
+                <Link
+                  to="/login"
+                  className="rounded-lg border border-white/25 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+                >
+                  Student Login
+                </Link>
+                <Link
+                  to="/college/login"
+                  className="rounded-lg bg-sea px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-sea-deep"
+                >
+                  College Login
+                </Link>
+              </div>
+            )}
 
-            <MenuButton open={menuOpen} onToggle={toggleMenu} />
+            {/* Hamburger — mobile / tablet only */}
+            <MenuButton open={menuOpen} onToggle={toggleMenu} className="lg:hidden" />
           </div>
         </div>
       </header>
