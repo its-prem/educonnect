@@ -8,6 +8,7 @@ import {
   addProgram,
   addStream,
   approveCollege,
+  refreshCatalogFromApi,
   rejectCollege,
   removeCollege,
   removeProgram,
@@ -16,6 +17,7 @@ import {
   updateCollege,
 } from '../data/catalogStore'
 import { useApplications, useCatalog, useSuperAdmin } from '../hooks/useCatalog'
+import { isApiEnabled } from '../lib/api'
 import { ADMISSION_STATUS_LABELS } from '../types/catalog'
 
 type Panel = 'streams' | 'programs' | 'colleges' | null
@@ -47,17 +49,27 @@ export function AdminDashboardPage() {
               is not shown in the public menu.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              if (window.confirm('Reset catalog to demo seed data?')) {
-                resetCatalogToSeed()
-              }
-            }}
-            className="rounded-md border border-line bg-white px-4 py-2 text-sm font-medium text-ink hover:bg-mist"
-          >
-            Reset demo data
-          </button>
+          {isApiEnabled() ? (
+            <button
+              type="button"
+              onClick={() => void refreshCatalogFromApi()}
+              className="rounded-md border border-line bg-white px-4 py-2 text-sm font-medium text-ink hover:bg-mist"
+            >
+              Refresh from server
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm('Reset catalog to demo seed data?')) {
+                  resetCatalogToSeed()
+                }
+              }}
+              className="rounded-md border border-line bg-white px-4 py-2 text-sm font-medium text-ink hover:bg-mist"
+            >
+              Reset demo data
+            </button>
+          )}
         </div>
 
         <section className="mt-10">
@@ -186,7 +198,7 @@ export function AdminDashboardPage() {
                   type="button"
                   onClick={() => {
                     if (window.confirm(`Remove stream “${stream.name}” and its programs?`)) {
-                      removeStream(stream.id)
+                      void removeStream(stream.id)
                     }
                   }}
                   className="rounded-md px-2 py-1 text-sm font-medium text-stone hover:bg-mist hover:text-ink"
@@ -226,7 +238,7 @@ export function AdminDashboardPage() {
                     type="button"
                     onClick={() => {
                       if (window.confirm(`Remove program “${program.name}”?`)) {
-                        removeProgram(program.id)
+                        void removeProgram(program.id)
                       }
                     }}
                     className="rounded-md px-2 py-1 text-sm font-medium text-stone hover:bg-mist hover:text-ink"
@@ -283,8 +295,8 @@ export function AdminDashboardPage() {
                 showAdmissionToggle
                 initialCollege={approved.find((college) => college.id === editingCollegeId) ?? null}
                 onCancel={() => setEditingCollegeId(null)}
-                onSubmit={(input) => {
-                  updateCollege(editingCollegeId, {
+                onSubmit={async (input) => {
+                  await updateCollege(editingCollegeId, {
                     ...input,
                     approvalStatus: 'approved',
                     submittedBy: 'admin',
@@ -328,7 +340,7 @@ export function AdminDashboardPage() {
                     type="button"
                     onClick={() => {
                       if (window.confirm(`Remove college “${college.name}”?`)) {
-                        removeCollege(college.id)
+                        void removeCollege(college.id)
                       }
                     }}
                     className="rounded-md px-2 py-1 text-sm font-medium text-stone hover:bg-mist hover:text-ink"
@@ -420,12 +432,18 @@ const inputClass =
 function AddStreamForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => void }) {
   const [name, setName] = useState('')
   const [hint, setHint] = useState('')
+  const [busy, setBusy] = useState(false)
 
-  function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     if (!name.trim()) return
-    addStream({ name, hint: hint || 'Programs coming soon' })
-    onDone()
+    setBusy(true)
+    try {
+      await addStream({ name, hint: hint || 'Programs coming soon' })
+      onDone()
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -437,8 +455,8 @@ function AddStreamForm({ onDone, onCancel }: { onDone: () => void; onCancel: () 
         <input className={inputClass} value={hint} onChange={(e) => setHint(e.target.value)} />
       </Field>
       <div className="flex flex-wrap gap-2">
-        <button type="submit" className="rounded-md bg-sea px-4 py-2.5 text-sm font-semibold text-white">
-          Add stream
+        <button type="submit" disabled={busy} className="rounded-md bg-sea px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60">
+          {busy ? 'Adding…' : 'Add stream'}
         </button>
         <button
           type="button"
@@ -463,12 +481,18 @@ function AddProgramForm({
 }) {
   const [streamId, setStreamId] = useState(streams[0]?.id ?? '')
   const [name, setName] = useState('')
+  const [busy, setBusy] = useState(false)
 
-  function handleSubmit(event: FormEvent) {
+  async function handleSubmit(event: FormEvent) {
     event.preventDefault()
     if (!streamId || !name.trim()) return
-    addProgram({ streamId, name })
-    onDone()
+    setBusy(true)
+    try {
+      await addProgram({ streamId, name })
+      onDone()
+    } finally {
+      setBusy(false)
+    }
   }
 
   if (streams.length === 0) {
@@ -500,8 +524,8 @@ function AddProgramForm({
         />
       </Field>
       <div className="flex flex-wrap gap-2">
-        <button type="submit" className="rounded-md bg-sea px-4 py-2.5 text-sm font-semibold text-white">
-          Add program
+        <button type="submit" disabled={busy} className="rounded-md bg-sea px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60">
+          {busy ? 'Adding…' : 'Add program'}
         </button>
         <button
           type="button"

@@ -15,8 +15,9 @@ $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 $uri = $_SERVER['REQUEST_URI'] ?? '/';
 $path = parse_url($uri, PHP_URL_PATH) ?: '/';
 
-// Strip /api prefix if present
-$path = preg_replace('#^/api#', '', $path) ?? $path;
+// Strip everything up to and including the first `/api`
+// Works at domain root (/api/health) and in a subfolder (/educonnect/api/health)
+$path = preg_replace('#^.*?/api#', '', $path) ?? $path;
 $path = '/' . trim($path, '/');
 
 try {
@@ -58,6 +59,26 @@ try {
         $method === 'POST' && preg_match('#^/admin/colleges/([^/]+)/reject$#', $path, $m) === 1 => (function () use ($m) {
             $_GET['id'] = urldecode($m[1]);
             require __DIR__ . '/endpoints/admin_reject.php';
+        })(),
+
+        // Admin — catalog management (streams / programs / colleges CRUD)
+        $method === 'POST' && $path === '/admin/streams' => require __DIR__ . '/endpoints/streams_create.php',
+        $method === 'POST' && preg_match('#^/admin/streams/([^/]+)/delete$#', $path, $m) === 1 => (function () use ($m) {
+            $_GET['id'] = urldecode($m[1]);
+            require __DIR__ . '/endpoints/streams_delete.php';
+        })(),
+        $method === 'POST' && $path === '/admin/programs' => require __DIR__ . '/endpoints/programs_create.php',
+        $method === 'POST' && preg_match('#^/admin/programs/([^/]+)/delete$#', $path, $m) === 1 => (function () use ($m) {
+            $_GET['id'] = urldecode($m[1]);
+            require __DIR__ . '/endpoints/programs_delete.php';
+        })(),
+        $method === 'POST' && preg_match('#^/admin/colleges/([^/]+)/update$#', $path, $m) === 1 => (function () use ($m) {
+            $_GET['id'] = urldecode($m[1]);
+            require __DIR__ . '/endpoints/colleges_update.php';
+        })(),
+        $method === 'POST' && preg_match('#^/admin/colleges/([^/]+)/delete$#', $path, $m) === 1 => (function () use ($m) {
+            $_GET['id'] = urldecode($m[1]);
+            require __DIR__ . '/endpoints/colleges_delete.php';
         })(),
 
         default => json_error('Not found: ' . $method . ' ' . $path, 404),

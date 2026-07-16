@@ -176,6 +176,8 @@ function collegePayload(input: CollegeInput) {
     branches: input.branches.map((branch) => branch.trim()).filter(Boolean),
     images: input.images.map((image) => image.trim()).filter(Boolean),
     submittedBy: input.submittedBy ?? 'student',
+    admissionStatus: input.admissionStatus ?? 'open',
+    approvalStatus: input.approvalStatus ?? 'pending',
     shareUrl: input.shareUrl?.trim() || '',
   }
 }
@@ -196,7 +198,16 @@ export function getApprovedCollegeBySlug(slug: string) {
   return getApprovedColleges().find((college) => college.slug === slug)
 }
 
-export function addStream(input: { name: string; hint: string }) {
+export async function addStream(input: { name: string; hint: string }) {
+  if (isApiEnabled()) {
+    const data = await apiFetch<{ stream: Stream }>('/admin/streams', {
+      body: { name: input.name.trim(), hint: input.hint.trim() },
+      token: getAdminToken(),
+    })
+    await refreshCatalogFromApi()
+    return data.stream
+  }
+
   const catalog = loadCatalog()
   const stream: Stream = {
     id: createId('stream'),
@@ -209,7 +220,16 @@ export function addStream(input: { name: string; hint: string }) {
   return stream
 }
 
-export function removeStream(streamId: string) {
+export async function removeStream(streamId: string) {
+  if (isApiEnabled()) {
+    await apiFetch(`/admin/streams/${encodeURIComponent(streamId)}/delete`, {
+      method: 'POST',
+      token: getAdminToken(),
+    })
+    await refreshCatalogFromApi()
+    return
+  }
+
   const catalog = loadCatalog()
   const programIds = new Set(
     catalog.programs.filter((program) => program.streamId === streamId).map((p) => p.id),
@@ -225,7 +245,16 @@ export function removeStream(streamId: string) {
   saveCatalog(catalog)
 }
 
-export function addProgram(input: { streamId: string; name: string }) {
+export async function addProgram(input: { streamId: string; name: string }) {
+  if (isApiEnabled()) {
+    const data = await apiFetch<{ program: Program }>('/admin/programs', {
+      body: { streamId: input.streamId, name: input.name.trim() },
+      token: getAdminToken(),
+    })
+    await refreshCatalogFromApi()
+    return data.program
+  }
+
   const catalog = loadCatalog()
   const program: Program = {
     id: createId('prog'),
@@ -238,7 +267,16 @@ export function addProgram(input: { streamId: string; name: string }) {
   return program
 }
 
-export function removeProgram(programId: string) {
+export async function removeProgram(programId: string) {
+  if (isApiEnabled()) {
+    await apiFetch(`/admin/programs/${encodeURIComponent(programId)}/delete`, {
+      method: 'POST',
+      token: getAdminToken(),
+    })
+    await refreshCatalogFromApi()
+    return
+  }
+
   const catalog = loadCatalog()
   catalog.programs = catalog.programs.filter((program) => program.id !== programId)
   catalog.colleges = catalog.colleges
@@ -318,7 +356,24 @@ export async function addCollege(input: CollegeInput) {
   return college
 }
 
-export function updateCollege(collegeId: string, input: CollegeInput) {
+export async function updateCollege(collegeId: string, input: CollegeInput) {
+  if (isApiEnabled()) {
+    const data = await apiFetch<{ college: College }>(
+      `/admin/colleges/${encodeURIComponent(collegeId)}/update`,
+      {
+        body: {
+          ...collegePayload(input),
+          submittedBy: input.submittedBy ?? 'admin',
+          admissionStatus: input.admissionStatus ?? 'open',
+          approvalStatus: input.approvalStatus ?? 'approved',
+        },
+        token: getAdminToken(),
+      },
+    )
+    await refreshCatalogFromApi()
+    return normalizeCollege(data.college)
+  }
+
   const catalog = loadCatalog()
   const existing = catalog.colleges.find((college) => college.id === collegeId)
   if (!existing) return null
@@ -405,7 +460,16 @@ export async function rejectCollege(collegeId: string) {
   saveCatalog(catalog)
 }
 
-export function removeCollege(collegeId: string) {
+export async function removeCollege(collegeId: string) {
+  if (isApiEnabled()) {
+    await apiFetch(`/admin/colleges/${encodeURIComponent(collegeId)}/delete`, {
+      method: 'POST',
+      token: getAdminToken(),
+    })
+    await refreshCatalogFromApi()
+    return
+  }
+
   const catalog = loadCatalog()
   catalog.colleges = catalog.colleges.filter((college) => college.id !== collegeId)
   saveCatalog(catalog)
