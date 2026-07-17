@@ -36,7 +36,6 @@ export const menuSections: NavSection[] = [
     title: 'Login',
     items: [
       { label: 'Student Login', to: '/login', description: 'Name, college, branch, phone & Gmail' },
-      { label: 'College Login', to: '/college/login', description: 'Campus account access' },
     ],
   },
 ]

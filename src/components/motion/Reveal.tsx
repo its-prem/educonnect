@@ -14,18 +14,33 @@ export function Reveal({ children, className = '', delayMs = 0 }: RevealProps) {
     const node = ref.current
     if (!node) return
 
+    if (typeof IntersectionObserver === 'undefined') {
+      setVisible(true)
+      return
+    }
+
     const observer = new IntersectionObserver(
       ([entry]) => {
+        // threshold 0 → fires as soon as any part enters view.
+        // (0.16 broke on very tall elements whose 16% is never visible at once.)
         if (entry?.isIntersecting) {
           setVisible(true)
           observer.disconnect()
         }
       },
-      { threshold: 0.16, rootMargin: '0px 0px -8% 0px' },
+      { threshold: 0, rootMargin: '0px 0px -5% 0px' },
     )
 
     observer.observe(node)
-    return () => observer.disconnect()
+
+    // Safety fallback: if the observer never fires (e.g. element taller than
+    // viewport, or edge-case timing), reveal anyway so content is never stuck hidden.
+    const fallback = window.setTimeout(() => setVisible(true), 1200)
+
+    return () => {
+      observer.disconnect()
+      window.clearTimeout(fallback)
+    }
   }, [])
 
   return (

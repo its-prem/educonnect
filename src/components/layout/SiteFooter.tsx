@@ -22,9 +22,6 @@ export function SiteFooter() {
           <Link to="/login" className="transition-all duration-300 hover:translate-y-[-1px] hover:text-white">
             Student Login
           </Link>
-          <Link to="/college/login" className="transition-all duration-300 hover:translate-y-[-1px] hover:text-white">
-            College Login
-          </Link>
           <Link to="/college/register" className="transition-all duration-300 hover:translate-y-[-1px] hover:text-white">
             List a College
           </Link>

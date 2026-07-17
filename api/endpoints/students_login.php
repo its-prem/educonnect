@@ -12,7 +12,7 @@ if ($email === '' || strlen($phone) < 10) {
 }
 
 $stmt = db()->prepare(
-    'SELECT id, name, phone, email, college_name, branch, created_at
+    'SELECT id, name, phone, email, college_name, college_id, branch, created_at
      FROM students WHERE email = ? AND phone = ? LIMIT 1'
 );
 $stmt->execute([$email, $phone]);
@@ -29,6 +29,7 @@ json_response([
         'name' => $row['name'],
         'phone' => $row['phone'],
         'email' => $row['email'],
+        'collegeId' => $row['college_id'] ?: null,
         'collegeName' => $row['college_name'],
         'branch' => $row['branch'],
         'createdAt' => $row['created_at'],

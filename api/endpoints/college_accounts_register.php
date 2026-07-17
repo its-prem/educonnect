@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../bootstrap.php';
 
+json_error('College registration is temporarily disabled. Please use Student Login.', 503);
+
 $body = read_json_body();
 $collegeName = trim((string) ($body['collegeName'] ?? $body['college_name'] ?? ''));
 $contactName = trim((string) ($body['contactName'] ?? $body['contact_name'] ?? ''));

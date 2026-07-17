@@ -26,9 +26,16 @@ export function ProgramCollegesPage() {
 
   const colleges = useMemo(() => {
     if (!program) return []
+    const programName = program.name.trim().toLowerCase()
+    const matchesProgram = (college: (typeof catalog.colleges)[number]) => {
+      if (college.programIds.includes(program.id)) return true
+      // Legacy / bulk colleges may only have program names (no linked IDs).
+      const names = [...(college.customPrograms ?? []), ...(college.courses ?? [])]
+      return names.some((n) => n.trim().toLowerCase() === programName)
+    }
     return catalog.colleges
       .filter((college) => college.approvalStatus === 'approved')
-      .filter((college) => college.programIds.includes(program.id))
+      .filter(matchesProgram)
       .filter((college) => (typeFilter === 'all' ? true : college.type === typeFilter))
   }, [catalog.colleges, program, typeFilter])
 

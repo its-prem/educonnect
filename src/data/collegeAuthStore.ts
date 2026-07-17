@@ -1,5 +1,8 @@
+import { COLLEGE_LOGIN_ENABLED } from '../config/features'
 import { ApiError, apiFetch, isApiEnabled } from '../lib/api'
 import { STUDENT_SESSION_KEY } from '../types/student'
+
+const DISABLED_MSG = 'College login is temporarily disabled. Please use Student Login.'
 
 export type CollegeAccount = {
   id: string
@@ -116,6 +119,10 @@ export async function registerCollegeAccount(input: {
   email: string
   branch: string
 }): Promise<CollegeAuthResult> {
+  if (!COLLEGE_LOGIN_ENABLED) {
+    return { ok: false, error: DISABLED_MSG }
+  }
+
   const collegeName = input.collegeName.trim()
   const contactName = input.contactName.trim()
   const phone = normalizePhone(input.phone)
@@ -171,6 +178,10 @@ export async function loginCollegeAccount(input: {
   email: string
   phone: string
 }): Promise<CollegeAuthResult> {
+  if (!COLLEGE_LOGIN_ENABLED) {
+    return { ok: false, error: DISABLED_MSG }
+  }
+
   const email = normalizeEmail(input.email)
   const phone = normalizePhone(input.phone)
 

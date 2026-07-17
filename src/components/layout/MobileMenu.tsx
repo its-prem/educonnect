@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { Link, useLocation } from 'react-router-dom'
 import { menuSections } from '../../config/navigation'
+import { useCatalog } from '../../hooks/useCatalog'
 import { useStudentAuth } from '../../hooks/useStudentAuth'
 
 type MobileMenuProps = {
@@ -12,7 +13,24 @@ type MobileMenuProps = {
 export function MobileMenu({ open, onClose }: MobileMenuProps) {
   const location = useLocation()
   const { student, isLoggedIn, logout } = useStudentAuth()
+  const catalog = useCatalog()
   const prevPath = useRef(`${location.pathname}${location.hash}`)
+
+  const myCollege = student
+    ? student.collegeId
+      ? catalog.colleges.find((college) => college.id === student.collegeId)
+      : catalog.colleges.find(
+          (college) =>
+            college.approvalStatus === 'approved' &&
+            college.name.trim().toLowerCase().replace(/\s+/g, ' ') ===
+              student.collegeName.trim().toLowerCase().replace(/\s+/g, ' '),
+        )
+    : undefined
+  const editHref = myCollege
+    ? `/colleges/${myCollege.slug}#edit-college`
+    : student && !student.collegeId
+      ? '/college/register'
+      : null
 
   useEffect(() => {
     if (!open) return
@@ -136,9 +154,27 @@ export function MobileMenu({ open, onClose }: MobileMenuProps) {
         <div className="shrink-0 border-t border-line bg-white px-5 py-4">
           {isLoggedIn && student ? (
             <div className="space-y-3">
-              <p className="text-sm text-stone">
-                Signed in as <span className="font-semibold text-ink">{student.name}</span>
-              </p>
+              <div>
+                <p className="text-sm text-stone">
+                  Signed in as <span className="font-semibold text-ink">{student.name}</span>
+                </p>
+                {student.collegeName ? (
+                  <p className="mt-1 text-xs text-stone">
+                    College:{' '}
+                    <span className="font-semibold text-ink">{student.collegeName}</span>
+                    {!student.collegeId ? ' (Other)' : ''}
+                  </p>
+                ) : null}
+              </div>
+              {editHref ? (
+                <Link
+                  to={editHref}
+                  onClick={onClose}
+                  className="btn btn-primary btn-block"
+                >
+                  {myCollege ? 'Edit my college' : 'List my college'}
+                </Link>
+              ) : null}
               <button
                 type="button"
                 onClick={() => {
@@ -151,14 +187,9 @@ export function MobileMenu({ open, onClose }: MobileMenuProps) {
               </button>
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3">
-              <Link to="/login" onClick={onClose} className="btn btn-ink btn-block">
-                Student Login
-              </Link>
-              <Link to="/college/login" onClick={onClose} className="btn btn-primary btn-block">
-                College Login
-              </Link>
-            </div>
+            <Link to="/login" onClick={onClose} className="btn btn-primary btn-block">
+              Student Login
+            </Link>
           )}
         </div>
       </aside>

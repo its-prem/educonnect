@@ -1,10 +1,13 @@
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { SiteHeader } from '../components/layout/SiteHeader'
+import { useApprovedColleges } from '../hooks/useCatalog'
 import { useStudentAuth } from '../hooks/useStudentAuth'
 
 const inputClass =
   'w-full rounded-md border border-line bg-white px-3.5 py-3 text-ink outline-none transition-colors placeholder:text-stone/60 focus:border-sea'
+
+const OTHER_VALUE = '__other__'
 
 type Mode = 'login' | 'register'
 
@@ -12,21 +15,22 @@ export function StudentLoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { student, login, register } = useStudentAuth()
+  const approvedColleges = useApprovedColleges()
 
   const initialMode: Mode = location.pathname.includes('register') ? 'register' : 'login'
   const [mode, setMode] = useState<Mode>(initialMode)
   const [name, setName] = useState('')
-  const [collegeName, setCollegeName] = useState('')
+  const [collegeSelect, setCollegeSelect] = useState('')
+  const [otherCollegeName, setOtherCollegeName] = useState('')
   const [branch, setBranch] = useState('')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
+  const nextParam = new URLSearchParams(location.search).get('next')
   const redirectTo =
-    (location.state as { from?: string } | null)?.from ||
-    new URLSearchParams(location.search).get('next') ||
-    '/colleges'
+    (location.state as { from?: string } | null)?.from || nextParam || '/colleges'
 
   if (student) {
     return <Navigate to={redirectTo} replace />
@@ -45,11 +49,57 @@ export function StudentLoginPage() {
 
     try {
       if (mode === 'register') {
-        const result = await register({ name, phone, email, collegeName, branch })
+        if (!collegeSelect) {
+          setError('Please select your college from the list.')
+          return
+        }
+
+        const isOther = collegeSelect === OTHER_VALUE
+        let collegeId: string | null = null
+        let collegeName = ''
+        let collegeSlug = ''
+
+        if (isOther) {
+          collegeName = otherCollegeName.trim()
+          if (collegeName.length < 2) {
+            setError('Please type your college name.')
+            return
+          }
+        } else {
+          const selected = approvedColleges.find((college) => college.id === collegeSelect)
+          if (!selected) {
+            setError('Please select a valid college.')
+            return
+          }
+          collegeId = selected.id
+          collegeName = selected.name
+          collegeSlug = selected.slug
+        }
+
+        const result = await register({
+          name,
+          phone,
+          email,
+          collegeId,
+          collegeName,
+          branch,
+        })
         if (!result.ok) {
           setError(result.error)
           return
         }
+
+        // Smart default next: linked students → their campus; Other → list new college
+        const hasCustomNext = Boolean(nextParam || (location.state as { from?: string } | null)?.from)
+        if (!hasCustomNext) {
+          if (collegeId && collegeSlug) {
+            navigate(`/colleges/${collegeSlug}`, { replace: true })
+            return
+          }
+          navigate('/college/register', { replace: true })
+          return
+        }
+
         navigate(redirectTo, { replace: true })
         return
       }
@@ -87,19 +137,19 @@ export function StudentLoginPage() {
             </h1>
             <p className="mt-4 max-w-md text-base leading-relaxed text-stone">
               {mode === 'register'
-                ? 'Share your name, college, branch, phone, and Gmail so you can apply and track applications in one place.'
+                ? 'Pick your college from the list (or Other if it is not listed). Linked students can update only their campus; Other students can list a new college.'
                 : 'Log in with the Gmail and phone number you used while registering.'}
             </p>
 
             <ul className="mt-8 space-y-3 text-sm text-ink-soft">
               <li className="flex gap-2">
-                <span className="text-sea">✓</span> Fast Take Admission with saved details
+                <span className="text-sea">✓</span> Select college at registration
               </li>
               <li className="flex gap-2">
-                <span className="text-sea">✓</span> Track My Applications
+                <span className="text-sea">✓</span> Edit photos &amp; details for your campus only
               </li>
               <li className="flex gap-2">
-                <span className="text-sea">✓</span> Synced with EduConnect cloud account
+                <span className="text-sea">✓</span> Or list a new college if yours is missing
               </li>
             </ul>
           </div>
@@ -142,15 +192,42 @@ export function StudentLoginPage() {
                   </label>
 
                   <label className="block">
-                    <span className="mb-1.5 block text-sm font-medium text-ink">College name</span>
-                    <input
+                    <span className="mb-1.5 block text-sm font-medium text-ink">Your college</span>
+                    <select
                       className={inputClass}
-                      value={collegeName}
-                      onChange={(e) => setCollegeName(e.target.value)}
-                      placeholder="Your college / campus name"
+                      value={collegeSelect}
+                      onChange={(e) => setCollegeSelect(e.target.value)}
                       required
-                    />
+                    >
+                      <option value="" disabled>
+                        Select college…
+                      </option>
+                      {approvedColleges.map((college) => (
+                        <option key={college.id} value={college.id}>
+                          {college.name} ({college.city})
+                        </option>
+                      ))}
+                      <option value={OTHER_VALUE}>Other — my college is not listed</option>
+                    </select>
                   </label>
+
+                  {collegeSelect === OTHER_VALUE ? (
+                    <label className="block">
+                      <span className="mb-1.5 block text-sm font-medium text-ink">
+                        Type your college name
+                      </span>
+                      <input
+                        className={inputClass}
+                        value={otherCollegeName}
+                        onChange={(e) => setOtherCollegeName(e.target.value)}
+                        placeholder="College / campus name"
+                        required
+                      />
+                      <span className="mt-1.5 block text-xs text-stone">
+                        After register you can send a new college listing for Super Admin approval.
+                      </span>
+                    </label>
+                  ) : null}
 
                   <label className="block">
                     <span className="mb-1.5 block text-sm font-medium text-ink">Branch</span>
@@ -231,13 +308,6 @@ export function StudentLoginPage() {
                   </button>
                 </>
               )}
-            </p>
-
-            <p className="mt-3 text-center text-sm text-stone">
-              Campus team?{' '}
-              <Link to="/college/login" className="font-semibold text-sea hover:text-sea-deep">
-                College Login
-              </Link>
             </p>
 
             <Link

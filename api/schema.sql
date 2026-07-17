@@ -8,18 +8,24 @@
 --
 -- NOTE: CREATE DATABASE / USE yahan nahi hai — Hostinger pe pehle se selected DB use hoti hai.
 
--- Students (registration: name, college, branch, phone, email)
+-- Students (registration: name, college dropdown / Other, branch, phone, email)
 CREATE TABLE IF NOT EXISTS students (
   id            VARCHAR(64)  NOT NULL PRIMARY KEY,
   name          VARCHAR(120) NOT NULL,
   phone         VARCHAR(20)  NOT NULL,
   email         VARCHAR(160) NOT NULL,
   college_name  VARCHAR(200) NOT NULL,
+  college_id    VARCHAR(64)  NULL,              -- linked approved college; NULL = Other (can list new)
   branch        VARCHAR(120) NOT NULL,
   created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   UNIQUE KEY uq_students_email (email),
-  UNIQUE KEY uq_students_phone (phone)
+  UNIQUE KEY uq_students_phone (phone),
+  KEY idx_students_college (college_id)
 ) ENGINE=InnoDB;
+
+-- If `students` already exists without college_id, run once in phpMyAdmin:
+-- ALTER TABLE students ADD COLUMN college_id VARCHAR(64) NULL AFTER college_name;
+-- ALTER TABLE students ADD KEY idx_students_college (college_id);
 
 -- Campus / college login accounts
 CREATE TABLE IF NOT EXISTS college_accounts (
@@ -138,6 +144,27 @@ CREATE TABLE IF NOT EXISTS applications (
   CONSTRAINT fk_app_college FOREIGN KEY (college_id) REFERENCES colleges(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+-- Student contributions / change requests (photos + field edits, pending until approved)
+CREATE TABLE IF NOT EXISTS college_contributions (
+  id             VARCHAR(64)  NOT NULL PRIMARY KEY,
+  college_id     VARCHAR(64)  NOT NULL,
+  college_slug   VARCHAR(160) NOT NULL,
+  college_name   VARCHAR(200) NOT NULL,
+  student_id     VARCHAR(64)  NULL,
+  student_name   VARCHAR(120) NOT NULL DEFAULT '',
+  student_email  VARCHAR(160) NOT NULL DEFAULT '',
+  student_phone  VARCHAR(20)  NOT NULL DEFAULT '',
+  images         LONGTEXT     NOT NULL,          -- JSON array of image data URLs
+  edits          LONGTEXT     NOT NULL,          -- JSON object of proposed field edits
+  note           TEXT         NOT NULL,
+  status         ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+  created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  reviewed_at    DATETIME     NULL,
+  KEY idx_contrib_status (status),
+  KEY idx_contrib_college (college_id),
+  CONSTRAINT fk_contrib_college FOREIGN KEY (college_id) REFERENCES colleges(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
 -- Super Admin (simple password hash — change default ASAP)
 CREATE TABLE IF NOT EXISTS admins (
   id            INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -147,12 +174,12 @@ CREATE TABLE IF NOT EXISTS admins (
   UNIQUE KEY uq_admins_username (username)
 ) ENGINE=InnoDB;
 
--- Default admin: username `admin`, password `admin123` (CHANGE THIS)
+-- Default admin: username `admin` (password set via first login / admin_login.php)
 INSERT INTO admins (username, password_hash)
 VALUES ('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi')
 ON DUPLICATE KEY UPDATE username = username;
--- Note: hash above is Laravel's "password" demo hash.
--- Generate your own: password_hash('admin123', PASSWORD_DEFAULT)
+-- Note: placeholder hash above is replaced on first successful admin login.
+-- Generate your own: password_hash('your-password', PASSWORD_DEFAULT)
 
 -- Seed streams / programs (optional demo)
 INSERT INTO streams (id, name, slug, hint) VALUES

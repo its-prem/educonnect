@@ -46,6 +46,8 @@ export type College = {
   admissionStatus: AdmissionStatus
   approvalStatus: ApprovalStatus
   submittedBy: ListingSource
+  /** Student id who requested this listing (when submittedBy === 'student') */
+  submittedById?: string | null
   about: string
   shareUrl: string
 }
@@ -68,6 +70,7 @@ export type CollegeInput = {
   about?: string
   shareUrl?: string
   submittedBy?: ListingSource
+  submittedById?: string
   approvalStatus?: ApprovalStatus
 }
 

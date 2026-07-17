@@ -1,4 +1,5 @@
 import { ApiError, apiFetch, isApiEnabled } from '../lib/api'
+import { getAdminToken } from './adminSession'
 import { STUDENTS_STORAGE_KEY, STUDENT_SESSION_KEY, type Student } from '../types/student'
 
 const STUDENT_PROFILE_KEY = 'educonnect.studentProfile'
@@ -22,11 +23,13 @@ function normalizeEmail(email: string) {
 }
 
 function normalizeStudent(raw: Partial<Student> & Pick<Student, 'id' | 'name' | 'phone' | 'email'>): Student {
+  const collegeId = raw.collegeId?.trim() || null
   return {
     id: raw.id,
     name: raw.name,
     phone: raw.phone,
     email: raw.email,
+    collegeId,
     collegeName: raw.collegeName?.trim() ?? '',
     branch: raw.branch?.trim() ?? '',
     createdAt: raw.createdAt ?? new Date().toISOString(),
@@ -87,17 +90,19 @@ export async function registerStudent(input: {
   name: string
   phone: string
   email: string
+  collegeId: string | null
   collegeName: string
   branch: string
 }): Promise<AuthResult> {
   const name = input.name.trim()
   const phone = normalizePhone(input.phone)
   const email = normalizeEmail(input.email)
+  const collegeId = input.collegeId?.trim() || null
   const collegeName = input.collegeName.trim()
   const branch = input.branch.trim()
 
   if (name.length < 2) return { ok: false, error: 'Please enter your full name.' }
-  if (collegeName.length < 2) return { ok: false, error: 'Please enter your college name.' }
+  if (collegeName.length < 2) return { ok: false, error: 'Please select or enter your college name.' }
   if (branch.length < 2) return { ok: false, error: 'Please enter your branch.' }
   if (phone.length < 10) return { ok: false, error: 'Enter a valid 10-digit phone number.' }
   if (!email.includes('@') || !email.includes('.')) {
@@ -107,7 +112,7 @@ export async function registerStudent(input: {
   if (isApiEnabled()) {
     try {
       const data = await apiFetch<{ student: Student }>('/students/register', {
-        body: { name, phone, email, collegeName, branch },
+        body: { name, phone, email, collegeId, collegeName, branch },
       })
       const student = normalizeStudent(data.student)
       setSessionStudent(student)
@@ -133,6 +138,7 @@ export async function registerStudent(input: {
     name,
     phone,
     email,
+    collegeId,
     collegeName,
     branch,
     createdAt: new Date().toISOString(),
@@ -184,6 +190,110 @@ export async function loginStudent(input: {
 
   setSessionStudent(student)
   return { ok: true, student }
+}
+
+/** Admin-only: all registered students (server list in API mode, local otherwise). */
+export async function listStudentsForAdmin(): Promise<Student[]> {
+  if (isApiEnabled()) {
+    try {
+      const data = await apiFetch<{ students: Student[] }>('/admin/students', {
+        token: getAdminToken(),
+      })
+      return (data.students ?? []).map(normalizeStudent)
+    } catch {
+      return []
+    }
+  }
+  return loadStudents()
+}
+
+export type StudentAdminInput = {
+  name: string
+  phone: string
+  email: string
+  collegeId: string | null
+  collegeName: string
+  branch: string
+}
+
+/** Admin-only: update a student profile. */
+export async function updateStudentForAdmin(
+  studentId: string,
+  input: StudentAdminInput,
+): Promise<Student> {
+  const name = input.name.trim()
+  const phone = normalizePhone(input.phone)
+  const email = normalizeEmail(input.email)
+  const collegeId = input.collegeId?.trim() || null
+  const collegeName = input.collegeName.trim()
+  const branch = input.branch.trim()
+
+  if (name.length < 2) throw new Error('Please enter the student full name.')
+  if (collegeName.length < 2) throw new Error('Please enter the college name.')
+  if (branch.length < 2) throw new Error('Please enter the branch.')
+  if (phone.length < 10) throw new Error('Enter a valid 10-digit phone number.')
+  if (!email.includes('@') || !email.includes('.')) throw new Error('Enter a valid email.')
+
+  if (isApiEnabled()) {
+    const data = await apiFetch<{ student: Student }>(
+      `/admin/students/${encodeURIComponent(studentId)}/update`,
+      {
+        body: { name, phone, email, collegeId, collegeName, branch },
+        token: getAdminToken(),
+      },
+    )
+    return normalizeStudent(data.student)
+  }
+
+  const students = loadStudents()
+  const index = students.findIndex((s) => s.id === studentId)
+  if (index < 0) throw new Error('Student not found.')
+
+  if (students.some((s) => s.id !== studentId && s.email === email)) {
+    throw new Error('Another student already uses this email.')
+  }
+  if (students.some((s) => s.id !== studentId && s.phone === phone)) {
+    throw new Error('Another student already uses this phone.')
+  }
+
+  const updated: Student = {
+    ...students[index],
+    name,
+    phone,
+    email,
+    collegeId,
+    collegeName,
+    branch,
+  }
+  students[index] = updated
+  saveStudents(students)
+
+  // Keep live session in sync if this student is currently logged in
+  if (canUseStorage() && window.sessionStorage.getItem(STUDENT_SESSION_KEY) === studentId) {
+    setSessionStudent(updated)
+  }
+
+  return updated
+}
+
+/** Admin-only: permanently delete a student profile. */
+export async function deleteStudentForAdmin(studentId: string): Promise<void> {
+  if (isApiEnabled()) {
+    await apiFetch(`/admin/students/${encodeURIComponent(studentId)}/delete`, {
+      method: 'POST',
+      token: getAdminToken(),
+    })
+    return
+  }
+
+  const students = loadStudents().filter((s) => s.id !== studentId)
+  saveStudents(students)
+
+  if (canUseStorage() && window.sessionStorage.getItem(STUDENT_SESSION_KEY) === studentId) {
+    window.sessionStorage.removeItem(STUDENT_SESSION_KEY)
+    window.sessionStorage.removeItem(STUDENT_PROFILE_KEY)
+    emitAuthChange()
+  }
 }
 
 export function logoutStudent() {

@@ -32,7 +32,7 @@ export async function loginSuperAdmin(password: string): Promise<boolean> {
     }
   }
 
-  if (password.trim() === 'admin123') {
+  if (password.trim() === '7250754032') {
     window.sessionStorage.setItem(ADMIN_SESSION_KEY, '1')
     window.dispatchEvent(new CustomEvent('educonnect:admin-auth'))
     return true

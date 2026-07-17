@@ -9,9 +9,14 @@ import {
   logoutSuperAdmin,
 } from '../data/adminSession'
 import { loadCatalog, refreshCatalogFromApi } from '../data/catalogStore'
+import {
+  loadContributions,
+  refreshContributionsFromApi,
+} from '../data/contributionsStore'
 import { getCurrentStudent } from '../data/studentStore'
 import { isApiEnabled } from '../lib/api'
 import type { CatalogData } from '../types/catalog'
+import type { CollegeContribution } from '../types/contributions'
 import type { AdmissionApplication } from '../types/applications'
 
 function subscribeCatalog(onStoreChange: () => void) {
@@ -76,6 +81,38 @@ export function useApplications(): AdmissionApplication[] {
   }, [])
 
   return JSON.parse(raw) as AdmissionApplication[]
+}
+
+function subscribeContributions(onStoreChange: () => void) {
+  const handler = () => onStoreChange()
+  window.addEventListener('educonnect:contributions-updated', handler)
+  window.addEventListener('storage', handler)
+  return () => {
+    window.removeEventListener('educonnect:contributions-updated', handler)
+    window.removeEventListener('storage', handler)
+  }
+}
+
+function getContributionsSnapshot() {
+  return JSON.stringify(loadContributions())
+}
+
+/** Admin-only: pending & reviewed student contributions. */
+export function useContributions(): CollegeContribution[] {
+  const raw = useSyncExternalStore(
+    subscribeContributions,
+    getContributionsSnapshot,
+    getContributionsSnapshot,
+  )
+
+  useEffect(() => {
+    if (!isApiEnabled()) return
+    if (isSuperAdmin()) {
+      void refreshContributionsFromApi()
+    }
+  }, [])
+
+  return JSON.parse(raw) as CollegeContribution[]
 }
 
 export { isSuperAdmin, loginSuperAdmin, logoutSuperAdmin }

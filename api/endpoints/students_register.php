@@ -8,13 +8,14 @@ $name = trim((string) ($body['name'] ?? ''));
 $phone = normalize_phone((string) ($body['phone'] ?? ''));
 $email = normalize_email((string) ($body['email'] ?? ''));
 $collegeName = trim((string) ($body['collegeName'] ?? $body['college_name'] ?? ''));
+$collegeId = trim((string) ($body['collegeId'] ?? $body['college_id'] ?? ''));
 $branch = trim((string) ($body['branch'] ?? ''));
 
 if (strlen($name) < 2) {
     json_error('Please enter your full name.');
 }
 if (strlen($collegeName) < 2) {
-    json_error('Please enter your college name.');
+    json_error('Please select or enter your college name.');
 }
 if (strlen($branch) < 2) {
     json_error('Please enter your branch.');
@@ -28,6 +29,21 @@ if (!str_contains($email, '@') || !str_contains($email, '.')) {
 
 $pdo = db();
 
+// If linked to a listed college, verify it exists and is approved
+if ($collegeId !== '') {
+    $col = $pdo->prepare(
+        "SELECT id, name FROM colleges WHERE id = ? AND approval_status = 'approved' LIMIT 1"
+    );
+    $col->execute([$collegeId]);
+    $college = $col->fetch();
+    if (!$college) {
+        json_error('Selected college was not found or is not approved yet.');
+    }
+    $collegeName = $college['name'];
+} else {
+    $collegeId = null;
+}
+
 $check = $pdo->prepare('SELECT id FROM students WHERE email = ? OR phone = ? LIMIT 1');
 $check->execute([$email, $phone]);
 if ($check->fetch()) {
@@ -36,10 +52,10 @@ if ($check->fetch()) {
 
 $id = new_id('stu');
 $stmt = $pdo->prepare(
-    'INSERT INTO students (id, name, phone, email, college_name, branch)
-     VALUES (?, ?, ?, ?, ?, ?)'
+    'INSERT INTO students (id, name, phone, email, college_name, college_id, branch)
+     VALUES (?, ?, ?, ?, ?, ?, ?)'
 );
-$stmt->execute([$id, $name, $phone, $email, $collegeName, $branch]);
+$stmt->execute([$id, $name, $phone, $email, $collegeName, $collegeId, $branch]);
 
 json_response([
     'ok' => true,
@@ -48,6 +64,7 @@ json_response([
         'name' => $name,
         'phone' => $phone,
         'email' => $email,
+        'collegeId' => $collegeId,
         'collegeName' => $collegeName,
         'branch' => $branch,
         'createdAt' => date('c'),

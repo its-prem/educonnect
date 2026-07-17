@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../bootstrap.php';
 
+json_error('College login is temporarily disabled. Please use Student Login.', 503);
+
 $body = read_json_body();
 $email = normalize_email((string) ($body['email'] ?? ''));
 $phone = normalize_phone((string) ($body['phone'] ?? ''));

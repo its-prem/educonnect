@@ -21,7 +21,7 @@ export function AdminLoginPage() {
     try {
       const ok = await login(password)
       if (!ok) {
-        setError('Wrong password. Demo password is admin123')
+        setError('Wrong password.')
         return
       }
       navigate('/admin', { replace: true })
@@ -35,8 +35,7 @@ export function AdminLoginPage() {
       <main className="mx-auto flex max-w-md flex-col px-5 py-16 md:py-24">
         <h1 className="font-display text-3xl font-bold text-ink">Super Admin login</h1>
         <p className="mt-3 text-sm text-stone">
-          This page is separate from the public site. Users only see Student Login and College Login.
-          Demo password: <span className="font-semibold text-ink">admin123</span>
+          This page is separate from the public site. Users only see Student Login.
         </p>
 
         <form onSubmit={handleSubmit} className="mt-8 space-y-4">

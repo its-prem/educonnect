@@ -45,12 +45,20 @@ Site URL examples:
 | GET | `/colleges?status=approved` | Public colleges |
 | GET | `/colleges/{slug}` | College detail |
 | POST | `/colleges` | Submit listing → **pending** for Super Admin |
+| POST | `/colleges/{id}/contributions` | Student photo/edit request → **pending** |
 | POST | `/applications` | Take Admission |
 | GET | `/applications?email=` | Student applications |
-| POST | `/admin/login` | `{ "username":"admin", "password":"admin123" }` → token |
+| POST | `/admin/login` | `{ "username":"admin", "password":"…" }` → token |
 | GET | `/admin/pending-colleges` | Header: `Authorization: Bearer TOKEN` |
 | POST | `/admin/colleges/{id}/approve` | Approve (Bearer token) |
 | POST | `/admin/colleges/{id}/reject` | Reject (Bearer token) |
+| GET | `/admin/contributions?status=pending` | Student contributions (Bearer token) |
+| POST | `/admin/contributions/{id}/update` | Edit pending contribution (Bearer token) |
+| POST | `/admin/contributions/{id}/approve` | Approve & merge photos/edits (Bearer token) |
+| POST | `/admin/contributions/{id}/reject` | Reject contribution (Bearer token) |
+| GET | `/admin/students` | All registered students (Bearer token) |
+| POST | `/admin/students/{id}/update` | Edit student profile (Bearer token) |
+| POST | `/admin/students/{id}/delete` | Delete student (Bearer token) |
 
 ## 5. Example: student register
 
@@ -70,7 +78,7 @@ curl -X POST https://yoursite.com/api/colleges \
 
 ## 7. Admin password
 
-Default login: `admin` / `admin123` (auto-hashes on first login).
+Default login username: `admin`. Password is set in the app/API login handler (auto-hashes on first successful login).
 
 Generate your own hash:
 

@@ -1,17 +1,6 @@
 import type { CatalogData, College } from '../types/catalog'
 
-export const CATALOG_STORAGE_KEY = 'educonnect.catalog.v4'
-
-const CAMPUS_1 =
-  'https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1400&q=80'
-const CAMPUS_2 =
-  'https://images.unsplash.com/photo-1541339907198-e08756dedf3f?auto=format&fit=crop&w=1400&q=80'
-const CAMPUS_3 =
-  'https://images.unsplash.com/photo-1523050854058-8df90110c9f1?auto=format&fit=crop&w=1400&q=80'
-const CAMPUS_4 =
-  'https://images.unsplash.com/photo-1498243697581-a1e401dbec9b?auto=format&fit=crop&w=1400&q=80'
-const LAB =
-  'https://images.unsplash.com/photo-1581094794329-cddeadbddf51?auto=format&fit=crop&w=1400&q=80'
+export const CATALOG_STORAGE_KEY = 'educonnect.catalog.v5'
 
 function college(
   partial: Omit<
@@ -121,7 +110,7 @@ export const seedCatalog: CatalogData = {
         'Diploma in Computer Science',
       ],
       branches: ['Civil', 'Mechanical', 'Electrical', 'Computer Science'],
-      images: [CAMPUS_1, CAMPUS_2, LAB],
+      images: [],
       about:
         'A state polytechnic offering industry-aligned diploma programs with workshops and placement support.',
     }),
@@ -141,7 +130,7 @@ export const seedCatalog: CatalogData = {
         'Diploma in Information Technology',
       ],
       branches: ['Automobile', 'Electronics', 'IT'],
-      images: [CAMPUS_3, CAMPUS_4],
+      images: [],
       about: 'Semi-government campus focused on hands-on diploma training for local industry.',
     }),
     college({
@@ -160,7 +149,7 @@ export const seedCatalog: CatalogData = {
         'Diploma in Mechanical Engineering',
       ],
       branches: ['CSE', 'ECE', 'Mechanical'],
-      images: [CAMPUS_2, LAB, CAMPUS_1],
+      images: [],
       about: 'Private diploma college with modern labs and scholarship seats for meritorious students.',
     }),
     college({
@@ -183,7 +172,7 @@ export const seedCatalog: CatalogData = {
         'M.Tech Structural Engineering',
       ],
       branches: ['CSE', 'IT', 'Mechanical', 'Civil', 'Electrical'],
-      images: [CAMPUS_4, CAMPUS_3, CAMPUS_2, LAB],
+      images: [],
       about: 'Flagship government engineering college for undergraduate and postgraduate programs.',
     }),
     college({
@@ -202,7 +191,7 @@ export const seedCatalog: CatalogData = {
         'B.Tech Electronics',
       ],
       branches: ['CSE', 'AI & ML', 'Electronics'],
-      images: [CAMPUS_1, CAMPUS_4],
+      images: [],
       about: 'State-backed engineering academy with industry mentoring cells.',
     }),
     college({
@@ -224,7 +213,7 @@ export const seedCatalog: CatalogData = {
         'M.Tech Data Science',
       ],
       branches: ['CSE', 'Information Science', 'Electronics', 'Data Science'],
-      images: [CAMPUS_3, CAMPUS_2, CAMPUS_1],
+      images: [],
       about: 'Private tech campus near Electronic City with strong placement networks.',
     }),
     college({
@@ -243,7 +232,7 @@ export const seedCatalog: CatalogData = {
         'M.Tech Power Systems',
       ],
       branches: ['Structural Engineering', 'VLSI', 'Power Systems'],
-      images: [LAB, CAMPUS_4],
+      images: [],
       about: 'Postgraduate-focused government college with research labs and funded projects.',
     }),
   ],

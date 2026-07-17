@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { SiteHeader } from '../components/layout/SiteHeader'
+import { COLLEGE_LOGIN_ENABLED } from '../config/features'
 import { useCollegeAuth } from '../hooks/useCollegeAuth'
 
 const inputClass =
@@ -19,6 +20,26 @@ export function CollegeLoginPage() {
   const [email, setEmail] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+
+  if (!COLLEGE_LOGIN_ENABLED) {
+    return (
+      <div className="page-enter min-h-screen bg-fog">
+        <SiteHeader variant="solid" />
+        <main className="mx-auto max-w-lg px-5 py-16 md:py-24">
+          <p className="text-sm font-medium tracking-wide text-sea uppercase">College account</p>
+          <h1 className="mt-3 font-display text-4xl font-extrabold tracking-tight text-ink">
+            Temporarily unavailable
+          </h1>
+          <p className="mt-4 text-base leading-relaxed text-stone">
+            College login and registration are paused for now. Please use Student Login to continue.
+          </p>
+          <Link to="/login" className="btn btn-primary mt-8">
+            Student Login
+          </Link>
+        </main>
+      </div>
+    )
+  }
 
   if (account) {
     return <Navigate to="/login?next=/college/register" replace />

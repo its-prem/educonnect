@@ -65,14 +65,11 @@ function normalizeCollege(raw: Partial<College> & Pick<College, 'id' | 'name'>):
     feesPdf: raw.feesPdf,
     courses,
     branches,
-    images: raw.images?.length
-      ? raw.images
-      : [
-          'https://images.unsplash.com/photo-1562774053-701939374585?auto=format&fit=crop&w=1400&q=80',
-        ],
+    images: raw.images ?? [],
     admissionStatus: raw.admissionStatus ?? 'open',
     approvalStatus: raw.approvalStatus ?? 'approved',
     submittedBy: raw.submittedBy ?? 'admin',
+    submittedById: raw.submittedById ?? null,
     about: raw.about ?? '',
     shareUrl: raw.shareUrl || `https://educonnect.demo/colleges/${slug}`,
   }
@@ -132,9 +129,11 @@ export function saveCatalog(data: CatalogData) {
   window.dispatchEvent(new CustomEvent('educonnect:catalog-updated'))
 }
 
-export async function refreshCatalogFromApi(): Promise<CatalogData> {
-  if (!isApiEnabled()) return loadCatalog()
+let catalogInflight: Promise<CatalogData> | null = null
+let catalogLastFetch = 0
+const CATALOG_TTL_MS = 3000
 
+async function fetchCatalogFromApi(): Promise<CatalogData> {
   try {
     const [streamsRes, programsRes, collegesRes] = await Promise.all([
       apiFetch<{ streams: Stream[] }>('/streams'),
@@ -148,10 +147,31 @@ export async function refreshCatalogFromApi(): Promise<CatalogData> {
       colleges: collegesRes.colleges ?? [],
     })
     saveCatalog(data)
+    catalogLastFetch = Date.now()
     return data
   } catch {
     return loadCatalog()
   }
+}
+
+/**
+ * Refreshes the catalog from the API.
+ * De-duplicates concurrent callers (e.g. many CollegeCards mounting at once)
+ * into a single in-flight request, and skips refetching within a short TTL.
+ * Pass `force` to bypass the TTL (used after admin writes).
+ */
+export async function refreshCatalogFromApi(force = false): Promise<CatalogData> {
+  if (!isApiEnabled()) return loadCatalog()
+
+  if (catalogInflight) return catalogInflight
+  if (!force && Date.now() - catalogLastFetch < CATALOG_TTL_MS) {
+    return loadCatalog()
+  }
+
+  catalogInflight = fetchCatalogFromApi().finally(() => {
+    catalogInflight = null
+  })
+  return catalogInflight
 }
 
 function collegePayload(input: CollegeInput) {
@@ -176,6 +196,7 @@ function collegePayload(input: CollegeInput) {
     branches: input.branches.map((branch) => branch.trim()).filter(Boolean),
     images: input.images.map((image) => image.trim()).filter(Boolean),
     submittedBy: input.submittedBy ?? 'student',
+    submittedById: input.submittedById?.trim() || undefined,
     admissionStatus: input.admissionStatus ?? 'open',
     approvalStatus: input.approvalStatus ?? 'pending',
     shareUrl: input.shareUrl?.trim() || '',
@@ -204,7 +225,7 @@ export async function addStream(input: { name: string; hint: string }) {
       body: { name: input.name.trim(), hint: input.hint.trim() },
       token: getAdminToken(),
     })
-    await refreshCatalogFromApi()
+    await refreshCatalogFromApi(true)
     return data.stream
   }
 
@@ -226,7 +247,7 @@ export async function removeStream(streamId: string) {
       method: 'POST',
       token: getAdminToken(),
     })
-    await refreshCatalogFromApi()
+    await refreshCatalogFromApi(true)
     return
   }
 
@@ -251,7 +272,7 @@ export async function addProgram(input: { streamId: string; name: string }) {
       body: { streamId: input.streamId, name: input.name.trim() },
       token: getAdminToken(),
     })
-    await refreshCatalogFromApi()
+    await refreshCatalogFromApi(true)
     return data.program
   }
 
@@ -273,7 +294,7 @@ export async function removeProgram(programId: string) {
       method: 'POST',
       token: getAdminToken(),
     })
-    await refreshCatalogFromApi()
+    await refreshCatalogFromApi(true)
     return
   }
 
@@ -321,6 +342,7 @@ function buildCollege(input: CollegeInput, existingId?: string, existingSlug?: s
     admissionStatus: input.admissionStatus ?? 'open',
     approvalStatus: input.approvalStatus ?? 'pending',
     submittedBy: input.submittedBy ?? 'student',
+    submittedById: input.submittedById ?? null,
     about: input.about?.trim() ?? '',
     shareUrl: input.shareUrl?.trim() || `https://educonnect.demo/colleges/${slug}`,
   })
@@ -338,7 +360,7 @@ export async function addCollege(input: CollegeInput) {
         token,
       })
     }
-    await refreshCatalogFromApi()
+    await refreshCatalogFromApi(true)
     return (
       loadCatalog().colleges.find((college) => college.id === created.college.id) ??
       normalizeCollege(created.college)
@@ -370,7 +392,7 @@ export async function updateCollege(collegeId: string, input: CollegeInput) {
         token: getAdminToken(),
       },
     )
-    await refreshCatalogFromApi()
+    await refreshCatalogFromApi(true)
     return normalizeCollege(data.college)
   }
 
@@ -433,7 +455,7 @@ export async function approveCollege(collegeId: string) {
       method: 'POST',
       token: getAdminToken(),
     })
-    await refreshCatalogFromApi()
+    await refreshCatalogFromApi(true)
     return
   }
 
@@ -450,7 +472,7 @@ export async function rejectCollege(collegeId: string) {
       method: 'POST',
       token: getAdminToken(),
     })
-    await refreshCatalogFromApi()
+    await refreshCatalogFromApi(true)
     return
   }
 
@@ -467,7 +489,7 @@ export async function removeCollege(collegeId: string) {
       method: 'POST',
       token: getAdminToken(),
     })
-    await refreshCatalogFromApi()
+    await refreshCatalogFromApi(true)
     return
   }
 
@@ -513,7 +535,7 @@ export async function bulkAddColleges(inputs: CollegeInput[]): Promise<BulkResul
         })
       }
     }
-    await refreshCatalogFromApi()
+    await refreshCatalogFromApi(true)
     return results
   }
 
