@@ -10,8 +10,9 @@ function studentToken() {
 }
 
 export async function fetchPrintCatalog(): Promise<PrintPdf[]> {
+  const token = getStudentToken()
   const data = await apiFetch<{ pdfs: PrintPdf[] }>('/prints/catalog', {
-    token: studentToken(),
+    token: token || undefined,
   })
   return data.pdfs ?? []
 }
