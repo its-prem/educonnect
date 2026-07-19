@@ -19,6 +19,9 @@ export function SiteFooter() {
           <Link to="/courses" className="transition-all duration-300 hover:translate-y-[-1px] hover:text-white">
             Courses
           </Link>
+          <Link to="/prints" className="transition-all duration-300 hover:translate-y-[-1px] hover:text-white">
+            Prints
+          </Link>
           <Link to="/login" className="transition-all duration-300 hover:translate-y-[-1px] hover:text-white">
             Student Login
           </Link>

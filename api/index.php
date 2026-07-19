@@ -111,6 +111,36 @@ try {
             require __DIR__ . '/endpoints/colleges_delete.php';
         })(),
 
+        // Secure PDF printing — student
+        $method === 'GET' && $path === '/prints/catalog' => require __DIR__ . '/endpoints/prints_catalog.php',
+        $method === 'POST' && $path === '/prints/orders' => require __DIR__ . '/endpoints/prints_orders_create.php',
+        $method === 'POST' && $path === '/prints/orders/verify' => require __DIR__ . '/endpoints/prints_orders_verify.php',
+        $method === 'POST' && $path === '/prints/webhook/cashfree' => require __DIR__ . '/endpoints/prints_webhook_cashfree.php',
+        $method === 'GET' && $path === '/prints/webhook/cashfree' => require __DIR__ . '/endpoints/prints_webhook_cashfree.php',
+        $method === 'GET' && $path === '/prints/purchases' => require __DIR__ . '/endpoints/prints_purchases_list.php',
+        $method === 'GET' && preg_match('#^/prints/purchases/([^/]+)/view$#', $path, $m) === 1 => (function () use ($m) {
+            $_GET['id'] = urldecode($m[1]);
+            require __DIR__ . '/endpoints/prints_purchases_view.php';
+        })(),
+        $method === 'POST' && preg_match('#^/prints/purchases/([^/]+)/print$#', $path, $m) === 1 => (function () use ($m) {
+            $_GET['id'] = urldecode($m[1]);
+            require __DIR__ . '/endpoints/prints_purchases_print.php';
+        })(),
+        $method === 'GET' && $path === '/prints/history' => require __DIR__ . '/endpoints/prints_history.php',
+
+        // Secure PDF printing — admin
+        ($method === 'GET' || $method === 'POST') && $path === '/admin/prints' => require __DIR__ . '/endpoints/admin_prints.php',
+        $method === 'GET' && $path === '/admin/prints/purchases' => require __DIR__ . '/endpoints/admin_prints_purchases.php',
+        $method === 'GET' && $path === '/admin/prints/logs' => require __DIR__ . '/endpoints/admin_prints_logs.php',
+        $method === 'POST' && preg_match('#^/admin/prints/purchases/([^/]+)/credits$#', $path, $m) === 1 => (function () use ($m) {
+            $_GET['id'] = urldecode($m[1]);
+            require __DIR__ . '/endpoints/admin_prints_credits.php';
+        })(),
+        $method === 'POST' && preg_match('#^/admin/prints/([^/]+)/update$#', $path, $m) === 1 => (function () use ($m) {
+            $_GET['id'] = urldecode($m[1]);
+            require __DIR__ . '/endpoints/admin_prints_update.php';
+        })(),
+
         default => json_error('Not found: ' . $method . ' ' . $path, 404),
     };
 } catch (Throwable $e) {

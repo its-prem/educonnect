@@ -41,6 +41,7 @@ export function SiteHeader({ variant = 'transparent' }: SiteHeaderProps) {
     { label: 'Home', to: '/', end: true },
     { label: 'Colleges', to: '/colleges', end: false },
     { label: 'Courses', to: '/courses', end: false },
+    { label: 'Prints', to: '/prints', end: false },
   ]
 
   return (

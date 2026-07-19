@@ -24,6 +24,7 @@ if (!$row) {
 
 json_response([
     'ok' => true,
+    'token' => student_token_encode($row['id']),
     'student' => [
         'id' => $row['id'],
         'name' => $row['name'],

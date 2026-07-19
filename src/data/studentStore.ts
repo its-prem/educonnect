@@ -3,6 +3,7 @@ import { getAdminToken } from './adminSession'
 import { STUDENTS_STORAGE_KEY, STUDENT_SESSION_KEY, type Student } from '../types/student'
 
 const STUDENT_PROFILE_KEY = 'educonnect.studentProfile'
+const STUDENT_TOKEN_KEY = 'educonnect.studentToken'
 
 export type AuthResult = { ok: true; student: Student } | { ok: false; error: string }
 
@@ -40,10 +41,22 @@ function emitAuthChange() {
   window.dispatchEvent(new CustomEvent('educonnect:student-auth'))
 }
 
-function setSessionStudent(student: Student) {
+export function getStudentToken(): string | null {
+  if (!canUseStorage()) return null
+  return window.sessionStorage.getItem(STUDENT_TOKEN_KEY)
+}
+
+function setStudentToken(token: string | null) {
+  if (!canUseStorage()) return
+  if (token) window.sessionStorage.setItem(STUDENT_TOKEN_KEY, token)
+  else window.sessionStorage.removeItem(STUDENT_TOKEN_KEY)
+}
+
+function setSessionStudent(student: Student, token?: string | null) {
   if (!canUseStorage()) return
   window.sessionStorage.setItem(STUDENT_SESSION_KEY, student.id)
   window.sessionStorage.setItem(STUDENT_PROFILE_KEY, JSON.stringify(student))
+  if (token !== undefined) setStudentToken(token)
   emitAuthChange()
 }
 
@@ -111,11 +124,11 @@ export async function registerStudent(input: {
 
   if (isApiEnabled()) {
     try {
-      const data = await apiFetch<{ student: Student }>('/students/register', {
+      const data = await apiFetch<{ student: Student; token?: string }>('/students/register', {
         body: { name, phone, email, collegeId, collegeName, branch },
       })
       const student = normalizeStudent(data.student)
-      setSessionStudent(student)
+      setSessionStudent(student, data.token ?? null)
       return { ok: true, student }
     } catch (error) {
       return {
@@ -163,11 +176,11 @@ export async function loginStudent(input: {
 
   if (isApiEnabled()) {
     try {
-      const data = await apiFetch<{ student: Student }>('/students/login', {
+      const data = await apiFetch<{ student: Student; token?: string }>('/students/login', {
         body: { email, phone },
       })
       const student = normalizeStudent(data.student)
-      setSessionStudent(student)
+      setSessionStudent(student, data.token ?? null)
       return { ok: true, student }
     } catch (error) {
       return {
@@ -300,5 +313,6 @@ export function logoutStudent() {
   if (!canUseStorage()) return
   window.sessionStorage.removeItem(STUDENT_SESSION_KEY)
   window.sessionStorage.removeItem(STUDENT_PROFILE_KEY)
+  window.sessionStorage.removeItem(STUDENT_TOKEN_KEY)
   emitAuthChange()
 }

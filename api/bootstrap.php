@@ -22,18 +22,29 @@ function db(): PDO
     }
 
     $c = app_config();
-    $dsn = sprintf(
-        'mysql:host=%s;dbname=%s;charset=%s',
-        $c['host'],
-        $c['dbname'],
-        $c['charset']
-    );
+    $host = (string) ($c['host'] ?? 'localhost');
+    $dbname = (string) ($c['dbname'] ?? '');
+    // Prefer utf8 — some Hostinger MySQL client builds don't know utf8mb4 in PDO DSN
+    $charset = strtolower(trim((string) ($c['charset'] ?? 'utf8')));
+    if ($charset === 'utf8mb4' || $charset === '') {
+        $charset = 'utf8mb4';
+    }
 
-    $pdo = new PDO($dsn, $c['username'], $c['password'], [
+    // Do NOT put charset in DSN — Hostinger often throws SQLSTATE[HY000] [2019]
+    $dsn = sprintf('mysql:host=%s;dbname=%s', $host, $dbname);
+
+    $pdo = new PDO($dsn, (string) $c['username'], (string) $c['password'], [
         PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
         PDO::ATTR_EMULATE_PREPARES   => false,
     ]);
+
+    // Set charset after connect (fallback utf8 if utf8mb4 unsupported)
+    try {
+        $pdo->exec('SET NAMES ' . ($charset === 'utf8mb4' ? 'utf8mb4' : 'utf8'));
+    } catch (Throwable $e) {
+        $pdo->exec('SET NAMES utf8');
+    }
 
     return $pdo;
 }
@@ -43,7 +54,7 @@ function cors(): void
     $origin = app_config()['cors_origin'] ?? '*';
     header('Access-Control-Allow-Origin: ' . $origin);
     header('Access-Control-Allow-Methods: GET, POST, PUT, PATCH, DELETE, OPTIONS');
-    header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Admin-Token');
+    header('Access-Control-Allow-Headers: Content-Type, Authorization, X-Admin-Token, X-Student-Token');
     header('Access-Control-Max-Age: 86400');
 
     if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -141,6 +152,60 @@ function admin_token_decode(string $token): ?array
     $data = json_decode(base64_decode($payload, true) ?: '', true);
     if (!is_array($data) || ($data['exp'] ?? 0) < time()) {
         return null;
+    }
+    return $data;
+}
+
+function bearer_token(): string
+{
+    $auth = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    if (preg_match('/Bearer\s+(\S+)/i', $auth, $m)) {
+        return $m[1];
+    }
+    return trim((string) ($_SERVER['HTTP_X_STUDENT_TOKEN'] ?? ''));
+}
+
+function student_token_encode(string $studentId): string
+{
+    $secret = app_config()['admin_secret'];
+    $payload = base64_encode(json_encode([
+        'sid' => $studentId,
+        'role' => 'student',
+        'exp' => time() + 60 * 60 * 24 * 14,
+    ], JSON_THROW_ON_ERROR));
+    $sig = hash_hmac('sha256', $payload, $secret);
+    return $payload . '.' . $sig;
+}
+
+function student_token_decode(string $token): ?array
+{
+    $parts = explode('.', $token, 2);
+    if (count($parts) !== 2) {
+        return null;
+    }
+    [$payload, $sig] = $parts;
+    $secret = app_config()['admin_secret'];
+    $check = hash_hmac('sha256', $payload, $secret);
+    if (!hash_equals($check, $sig)) {
+        return null;
+    }
+    $data = json_decode(base64_decode($payload, true) ?: '', true);
+    if (!is_array($data) || ($data['role'] ?? '') !== 'student' || ($data['exp'] ?? 0) < time()) {
+        return null;
+    }
+    if (empty($data['sid']) || !is_string($data['sid'])) {
+        return null;
+    }
+    return $data;
+}
+
+/** @return array{sid: string} */
+function require_student(): array
+{
+    $token = bearer_token();
+    $data = $token !== '' ? student_token_decode($token) : null;
+    if ($data === null) {
+        json_error('Unauthorized — student login required', 401);
     }
     return $data;
 }

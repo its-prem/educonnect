@@ -59,6 +59,7 @@ $stmt->execute([$id, $name, $phone, $email, $collegeName, $collegeId, $branch]);
 
 json_response([
     'ok' => true,
+    'token' => student_token_encode($id),
     'student' => [
         'id' => $id,
         'name' => $name,

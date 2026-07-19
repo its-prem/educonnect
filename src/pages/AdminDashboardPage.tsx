@@ -30,6 +30,7 @@ import { ADMISSION_STATUS_LABELS, COLLEGE_TYPE_LABELS, type College, type Colleg
 import type { CollegeContribution, CollegeEditFields } from '../types/contributions'
 import type { Student } from '../types/student'
 import { fileToImageDataUrl } from '../utils/fileData'
+import { AdminPrintsSection } from '../components/prints/AdminPrintsSection'
 
 type Panel = 'streams' | 'programs' | 'colleges' | 'bulk' | null
 
@@ -130,6 +131,8 @@ export function AdminDashboardPage() {
             {notice.text}
           </div>
         ) : null}
+
+        {isApiEnabled() ? <AdminPrintsSection onNotice={setNotice} /> : null}
 
         <section className="mt-8">
           <div className="flex items-center justify-between gap-3">

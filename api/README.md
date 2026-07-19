@@ -19,6 +19,15 @@ Edit `api/config.php`:
 'password' => 'YOUR_PASSWORD',
 'cors_origin' => 'https://your-frontend-domain.com',
 'admin_secret' => 'long-random-secret',
+'frontend_url' => 'https://your-frontend-domain.com',
+'api_public_url' => 'https://yoursite.com/api',
+'print_encryption_key' => 'long-random-print-key',
+'cashfree' => [
+  'env' => 'mock', // mock | sandbox | production
+  'app_id' => '',
+  'secret_key' => '',
+  'webhook_secret' => '',
+],
 ```
 
 ## 3. Upload
@@ -59,6 +68,19 @@ Site URL examples:
 | GET | `/admin/students` | All registered students (Bearer token) |
 | POST | `/admin/students/{id}/update` | Edit student profile (Bearer token) |
 | POST | `/admin/students/{id}/delete` | Delete student (Bearer token) |
+| GET | `/prints/catalog` | Enabled PDFs (student Bearer token) |
+| POST | `/prints/orders` | Buy credits → Cashfree / mock session |
+| POST | `/prints/orders/verify` | Verify payment after return |
+| POST | `/prints/webhook/cashfree` | Cashfree webhook (credits) |
+| GET | `/prints/purchases` | Student print dashboard |
+| GET | `/prints/purchases/{id}/view` | Stream encrypted PDF (no public URL) |
+| POST | `/prints/purchases/{id}/print` | Deduct 1 credit + log |
+| GET | `/prints/history` | Student print logs |
+| GET/POST | `/admin/prints` | List / upload PDF (multipart) |
+| POST | `/admin/prints/{id}/update` | Price / enable / disable |
+| GET | `/admin/prints/purchases` | All purchases |
+| POST | `/admin/prints/purchases/{id}/credits` | `{ "delta": 1 }` add/remove |
+| GET | `/admin/prints/logs` | All print logs |
 
 ## 5. Example: student register
 
@@ -93,3 +115,18 @@ Update `admins` table in phpMyAdmin.
 - College listings from `POST /colleges` are always `pending` until Super Admin approves.
 - Public `GET /colleges` defaults to `approved` only.
 - React app still uses localStorage for now — wire `fetch()` to these URLs when you deploy.
+
+## 8. Secure PDF printing (Cashfree)
+
+1. Import [`migrate_prints.sql`](migrate_prints.sql) in phpMyAdmin (or use full `schema.sql` on a fresh DB).
+2. Copy `config.example.php` → `config.php` and set:
+   - `frontend_url` — your Netlify / local Vite URL
+   - `api_public_url` — public API base for Cashfree webhook (e.g. `https://diplomawallah.in/educonnect/api`)
+   - `print_encryption_key` — long random string
+   - `cashfree.env` — `mock` (instant credits, no keys), `sandbox`, or `production`
+   - Cashfree `app_id` / `secret_key` / `webhook_secret` in **`config.php` only** (gitignored — do not put secrets in example or GitHub)
+3. Ensure `api/storage/prints/` is writable and blocked by `.htaccess`.
+4. Frontend routes: `/prints`, `/prints/dashboard`, `/prints/view/:id`, `/prints/history`.
+5. Student login/register now returns a Bearer token required for print APIs.
+6. Cashfree dashboard webhook URL: `{api_public_url}/prints/webhook/cashfree`
+7. Sandbox return URL must match `frontend_url` + `/prints/payment/return?order_id={order_id}`

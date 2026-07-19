@@ -13,6 +13,7 @@ export type NavSection = {
 export const primaryNav: NavLinkItem[] = [
   { label: 'Colleges', to: '/colleges', description: 'Browse and filter campuses' },
   { label: 'Courses', to: '/courses', description: 'Explore programs by stream' },
+  { label: 'Prints', to: '/prints', description: 'Buy credits and print PDFs securely' },
 ]
 
 export const menuSections: NavSection[] = [
@@ -22,6 +23,7 @@ export const menuSections: NavSection[] = [
       { label: 'Home', to: '/', description: 'Start here' },
       { label: 'Colleges', to: '/colleges', description: 'Search campuses and take admission' },
       { label: 'Courses', to: '/courses', description: 'Engineering, Medical, MBA…' },
+      { label: 'Prints', to: '/prints', description: 'Secure credit-based PDF printing' },
       { label: 'Streams', to: '/#streams', description: 'Browse by field of study' },
     ],
   },
@@ -29,6 +31,7 @@ export const menuSections: NavSection[] = [
     title: 'For students',
     items: [
       { label: 'My Applications', to: '/applications', description: 'Track admission status' },
+      { label: 'My Prints', to: '/prints/dashboard', description: 'Print credits and secure PDF view' },
       { label: 'How it works', to: '/#how-it-works', description: 'Browse → apply → track' },
     ],
   },
