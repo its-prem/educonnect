@@ -126,6 +126,10 @@ try {
             $_GET['id'] = urldecode($m[1]);
             require __DIR__ . '/endpoints/prints_purchases_print.php';
         })(),
+        $method === 'POST' && preg_match('#^/prints/purchases/([^/]+)/refund-last$#', $path, $m) === 1 => (function () use ($m) {
+            $_GET['id'] = urldecode($m[1]);
+            require __DIR__ . '/endpoints/prints_purchases_refund.php';
+        })(),
         $method === 'GET' && $path === '/prints/history' => require __DIR__ . '/endpoints/prints_history.php',
 
         // Secure PDF printing — admin
@@ -139,6 +143,10 @@ try {
         $method === 'POST' && preg_match('#^/admin/prints/([^/]+)/update$#', $path, $m) === 1 => (function () use ($m) {
             $_GET['id'] = urldecode($m[1]);
             require __DIR__ . '/endpoints/admin_prints_update.php';
+        })(),
+        $method === 'POST' && preg_match('#^/admin/prints/([^/]+)/replace$#', $path, $m) === 1 => (function () use ($m) {
+            $_GET['id'] = urldecode($m[1]);
+            require __DIR__ . '/endpoints/admin_prints_replace.php';
         })(),
 
         default => json_error('Not found: ' . $method . ' ' . $path, 404),

@@ -61,6 +61,18 @@ export async function recordPrint(
   return data.print
 }
 
+/** Undo last print within 2 minutes (e.g. popup blocked after deduct). */
+export async function refundLastPrint(purchaseId: string): Promise<{ remaining: number }> {
+  const data = await apiFetch<{ remaining: number }>(
+    `/prints/purchases/${encodeURIComponent(purchaseId)}/refund-last`,
+    {
+      method: 'POST',
+      token: studentToken(),
+    },
+  )
+  return { remaining: data.remaining }
+}
+
 /** Fetch PDF bytes via authenticated API (never expose a public file URL). */
 export async function fetchPurchasePdfBlob(purchaseId: string): Promise<Blob> {
   if (!isApiEnabled()) {
@@ -129,6 +141,25 @@ export async function adminUpdatePrintPdf(
     `/admin/prints/${encodeURIComponent(id)}/update`,
     { body: patch, token: getAdminToken() },
   )
+  return data.pdf
+}
+
+export async function adminReplacePrintPdf(id: string, file: File): Promise<PrintPdf> {
+  if (!isApiEnabled()) throw new ApiError('API URL not configured.')
+  const form = new FormData()
+  form.append('file', file)
+
+  const response = await fetch(`${API_BASE}/admin/prints/${encodeURIComponent(id)}/replace`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${getAdminToken() ?? ''}`,
+    },
+    body: form,
+  })
+  const data = (await response.json()) as { ok?: boolean; error?: string; pdf?: PrintPdf }
+  if (!response.ok || data.ok === false || !data.pdf) {
+    throw new ApiError(data.error || 'Re-upload failed', response.status)
+  }
   return data.pdf
 }
 

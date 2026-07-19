@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as pdfjs from 'pdfjs-dist'
 import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
-import { fetchPurchasePdfBlob, recordPrint } from '../../data/printsStore'
+import { fetchPurchasePdfBlob, recordPrint, refundLastPrint } from '../../data/printsStore'
 import { ApiError } from '../../lib/api'
 
 pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker
@@ -28,6 +28,8 @@ export function SecurePdfViewer({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [busyPrint, setBusyPrint] = useState(false)
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [pdfDoc, setPdfDoc] = useState<pdfjs.PDFDocumentProxy | null>(null)
   const blobUrlRef = useRef<string | null>(null)
 
@@ -94,7 +96,6 @@ export function SecurePdfViewer({
       await pdfPage.render({ canvasContext: ctx, viewport }).promise
       if (cancelled) return
 
-      // Watermark overlay
       ctx.save()
       ctx.globalAlpha = 0.18
       ctx.fillStyle = '#0b1f33'
@@ -132,23 +133,49 @@ export function SecurePdfViewer({
     }
   }, [])
 
-  async function handlePrint() {
+  function openConfirm() {
     if (remaining < 1) {
       setError('You have no print credits left. Please purchase additional credits.')
       return
     }
+    const canvas = canvasRef.current
+    if (!canvas) {
+      setError('Nothing to print.')
+      return
+    }
+    setError('')
+    setPreviewUrl(canvas.toDataURL('image/png'))
+    setConfirmOpen(true)
+  }
+
+  function closeConfirm() {
+    if (busyPrint) return
+    setConfirmOpen(false)
+    setPreviewUrl(null)
+  }
+
+  async function confirmPrint() {
+    if (remaining < 1) {
+      setError('You have no print credits left. Please purchase additional credits.')
+      setConfirmOpen(false)
+      return
+    }
+
     setBusyPrint(true)
     setError('')
+    let deducted = false
+
     try {
       const result = await recordPrint(purchaseId, 'Browser Print')
+      deducted = true
       onRemainingChange(result.remaining)
 
-      const canvas = canvasRef.current
-      if (!canvas) throw new Error('Nothing to print.')
+      const dataUrl = previewUrl ?? canvasRef.current?.toDataURL('image/png')
+      if (!dataUrl) throw new Error('Nothing to print.')
 
       const win = window.open('', '_blank', 'noopener,noreferrer,width=900,height=700')
-      if (!win) throw new Error('Popup blocked — allow popups to print.')
-      const dataUrl = canvas.toDataURL('image/png')
+      if (!win) throw new Error('Popup blocked — allow popups to print. Your credit was restored.')
+
       win.document.write(`<!doctype html><html><head><title>Print</title>
         <style>
           @page { margin: 12mm; }
@@ -162,7 +189,18 @@ export function SecurePdfViewer({
         <script>window.onload=function(){window.print();}</script>
         </body></html>`)
       win.document.close()
+
+      setConfirmOpen(false)
+      setPreviewUrl(null)
     } catch (err) {
+      if (deducted) {
+        try {
+          const refunded = await refundLastPrint(purchaseId)
+          onRemainingChange(refunded.remaining)
+        } catch {
+          /* keep deducted state; show primary error */
+        }
+      }
       setError(err instanceof Error ? err.message : 'Print failed')
     } finally {
       setBusyPrint(false)
@@ -205,9 +243,9 @@ export function SecurePdfViewer({
             type="button"
             className="btn btn-primary"
             disabled={busyPrint || remaining < 1 || loading}
-            onClick={() => void handlePrint()}
+            onClick={openConfirm}
           >
-            {busyPrint ? 'Printing…' : 'Print'}
+            Print
           </button>
         </div>
       </div>
@@ -234,8 +272,57 @@ export function SecurePdfViewer({
 
       <p className="mt-3 text-xs text-stone">
         Download, share, right-click, and browser Ctrl+P are blocked. Use the Print button only.
-        Each print uses 1 credit.
+        Credit is used only after you confirm.
       </p>
+
+      {confirmOpen ? (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-ink/55 p-4 backdrop-blur-[2px]"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="print-confirm-title"
+        >
+          <div className="max-h-[90vh] w-full max-w-lg overflow-auto rounded-xl border border-line bg-white p-5 shadow-xl">
+            <h2 id="print-confirm-title" className="font-display text-xl font-bold text-ink">
+              Confirm print
+            </h2>
+            <p className="mt-2 text-sm text-stone">
+              This will use <span className="font-semibold text-ink">1 print credit</span>. Remaining
+              after confirm: {Math.max(0, remaining - 1)}.
+            </p>
+
+            {previewUrl ? (
+              <div className="mt-4 overflow-hidden rounded-lg border border-line bg-mist p-2">
+                <img src={previewUrl} alt="Print preview" className="mx-auto max-h-64 object-contain" />
+              </div>
+            ) : null}
+
+            <p className="mt-3 text-xs text-stone">
+              After you confirm, the browser print dialog opens. Cancelling that dialog still uses the
+              credit (browser limitation).
+            </p>
+
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                className="btn btn-outline"
+                disabled={busyPrint}
+                onClick={closeConfirm}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={busyPrint}
+                onClick={() => void confirmPrint()}
+              >
+                {busyPrint ? 'Printing…' : 'Confirm print (1 credit)'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

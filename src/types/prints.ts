@@ -6,6 +6,7 @@ export type PrintPdf = {
   createdAt: string
   updatedAt?: string | null
   hasFile?: boolean
+  fileMissing?: boolean
 }
 
 export type PrintPurchase = {

@@ -4,6 +4,7 @@ import {
   adminListPrintLogs,
   adminListPrintPdfs,
   adminListPrintPurchases,
+  adminReplacePrintPdf,
   adminUpdatePrintPdf,
   adminUploadPrintPdf,
 } from '../../data/printsStore'
@@ -73,7 +74,8 @@ export function AdminPrintsSection({
       <div>
         <h2 className="font-display text-xl font-bold text-ink">Secure PDF printing</h2>
         <p className="mt-1 text-xs text-stone">
-          Upload PDFs, set price per credit, manage student credits, and view print logs.
+          Upload PDFs into Hostinger <code className="text-ink">api/storage/prints/</code> (must be
+          writable). If a row shows Missing file, use Re-upload.
         </p>
       </div>
 
@@ -124,6 +126,7 @@ export function AdminPrintsSection({
             <tr>
               <th className="px-4 py-2 font-medium">Title</th>
               <th className="px-4 py-2 font-medium">₹ / credit</th>
+              <th className="px-4 py-2 font-medium">File</th>
               <th className="px-4 py-2 font-medium">Status</th>
               <th className="px-4 py-2 font-medium">Actions</th>
             </tr>
@@ -133,9 +136,38 @@ export function AdminPrintsSection({
               <tr key={pdf.id} className="border-t border-line/70">
                 <td className="px-4 py-2">{pdf.title}</td>
                 <td className="px-4 py-2">{pdf.pricePerCredit.toFixed(2)}</td>
+                <td className="px-4 py-2">
+                  {pdf.hasFile ? (
+                    <span className="text-emerald-700">OK</span>
+                  ) : (
+                    <span className="font-medium text-red-700">Missing file</span>
+                  )}
+                </td>
                 <td className="px-4 py-2">{pdf.enabled ? 'Enabled' : 'Disabled'}</td>
                 <td className="px-4 py-2">
                   <div className="flex flex-wrap gap-2">
+                    <label className="cursor-pointer rounded border border-line px-2 py-1 text-xs hover:bg-fog">
+                      Re-upload
+                      <input
+                        type="file"
+                        accept="application/pdf,.pdf"
+                        className="hidden"
+                        onChange={(e) => {
+                          const next = e.target.files?.[0]
+                          e.target.value = ''
+                          if (!next) return
+                          void adminReplacePrintPdf(pdf.id, next)
+                            .then(() => reload())
+                            .then(() => onNotice({ type: 'ok', text: 'PDF file replaced.' }))
+                            .catch((err) =>
+                              onNotice({
+                                type: 'err',
+                                text: err instanceof Error ? err.message : 'Re-upload failed',
+                              }),
+                            )
+                        }}
+                      />
+                    </label>
                     <button
                       type="button"
                       className="rounded border border-line px-2 py-1 text-xs"

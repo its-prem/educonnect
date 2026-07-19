@@ -75,6 +75,7 @@ Site URL examples:
 | GET | `/prints/purchases` | Student print dashboard |
 | GET | `/prints/purchases/{id}/view` | Stream encrypted PDF (no public URL) |
 | POST | `/prints/purchases/{id}/print` | Deduct 1 credit + log |
+| POST | `/prints/purchases/{id}/refund-last` | Undo last print within 2 minutes |
 | GET | `/prints/history` | Student print logs |
 | GET/POST | `/admin/prints` | List / upload PDF (multipart) |
 | POST | `/admin/prints/{id}/update` | Price / enable / disable |

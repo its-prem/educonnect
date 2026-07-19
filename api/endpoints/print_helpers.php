@@ -5,7 +5,14 @@ function print_storage_dir(): string
 {
     $dir = __DIR__ . '/../storage/prints';
     if (!is_dir($dir)) {
-        mkdir($dir, 0750, true);
+        if (!@mkdir($dir, 0755, true) && !is_dir($dir)) {
+            throw new RuntimeException('Cannot create storage/prints — check Hostinger folder permissions.');
+        }
+    }
+    // Ensure .htaccess deny remains (block direct URL access)
+    $ht = $dir . '/.htaccess';
+    if (!is_file($ht)) {
+        @file_put_contents($ht, "Deny from all\n");
     }
     return $dir;
 }
@@ -38,31 +45,45 @@ function print_decrypt_bytes(string $blob): string
     $cipher = substr($blob, 16);
     $plain = openssl_decrypt($cipher, 'AES-256-CBC', print_encryption_key(), OPENSSL_RAW_DATA, $iv);
     if ($plain === false) {
-        throw new RuntimeException('Failed to decrypt PDF.');
+        throw new RuntimeException(
+            'Failed to decrypt PDF. Keep print_encryption_key the same in config.php after upload.'
+        );
     }
     return $plain;
 }
 
 function print_store_encrypted_file(string $pdfId, string $binary): string
 {
+    $dir = print_storage_dir();
+    if (!is_writable($dir)) {
+        throw new RuntimeException('storage/prints is not writable on the server.');
+    }
     $relative = $pdfId . '.bin';
-    $full = print_storage_dir() . '/' . $relative;
+    $full = $dir . '/' . $relative;
     $ok = file_put_contents($full, print_encrypt_bytes($binary));
-    if ($ok === false) {
-        throw new RuntimeException('Failed to store PDF file.');
+    if ($ok === false || !is_file($full)) {
+        throw new RuntimeException('Failed to store PDF file on server.');
     }
     return $relative;
 }
 
 function print_load_decrypted_file(string $relativePath): string
 {
-    $base = realpath(print_storage_dir());
-    $full = realpath(print_storage_dir() . '/' . basename($relativePath));
-    if ($base === false || $full === false || !str_starts_with($full, $base) || !is_file($full)) {
-        throw new RuntimeException('PDF file not found.');
+    $dir = print_storage_dir();
+    $safe = basename(str_replace('\\', '/', $relativePath));
+    if ($safe === '' || $safe === '.' || $safe === '..' || !str_ends_with($safe, '.bin')) {
+        throw new RuntimeException('Invalid PDF storage path.');
     }
+
+    $full = $dir . '/' . $safe;
+    if (!is_file($full) || !is_readable($full)) {
+        throw new RuntimeException(
+            'PDF file not found on server. Admin must re-upload this PDF (file missing in api/storage/prints/).'
+        );
+    }
+
     $blob = file_get_contents($full);
-    if ($blob === false) {
+    if ($blob === false || $blob === '') {
         throw new RuntimeException('Unable to read PDF file.');
     }
     return print_decrypt_bytes($blob);
@@ -164,6 +185,20 @@ function print_map_purchase(array $row, ?array $pdf = null, ?array $student = nu
     ];
 }
 
+function print_file_exists(string $relativePath): bool
+{
+    $safe = basename(str_replace('\\', '/', $relativePath));
+    if ($safe === '' || !str_ends_with($safe, '.bin')) {
+        return false;
+    }
+    try {
+        $full = print_storage_dir() . '/' . $safe;
+    } catch (Throwable $e) {
+        return false;
+    }
+    return is_file($full) && is_readable($full);
+}
+
 function print_map_pdf(array $row, bool $includePath = false): array
 {
     $out = [
@@ -175,7 +210,9 @@ function print_map_pdf(array $row, bool $includePath = false): array
         'updatedAt' => $row['updated_at'] ?? null,
     ];
     if ($includePath) {
-        $out['hasFile'] = $row['file_path'] !== '';
+        $path = (string) ($row['file_path'] ?? '');
+        $out['hasFile'] = $path !== '' && print_file_exists($path);
+        $out['fileMissing'] = $path !== '' && !$out['hasFile'];
     }
     return $out;
 }
